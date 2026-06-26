@@ -23,6 +23,7 @@ def health(_request):
 
 
 urlpatterns = [
+    path("", health, name="root"),  # App Platform health check uchun
     path("admin/", admin.site.urls),
     path("api/health/", health, name="health"),
     path("api/", include("accounts.urls")),
