@@ -1,0 +1,50 @@
+# UZ Temiryo'l backend — PostgreSQL + Django (production-ga yaqin lokal stack)
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-uztemiryol}
+      POSTGRES_USER: ${POSTGRES_USER:-uzuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-uzpass}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-uzuser}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  web:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      DJANGO_DEBUG: "False"
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1}
+      DATABASE_URL: postgres://${POSTGRES_USER:-uzuser}:${POSTGRES_PASSWORD:-uzpass}@db:5432/${POSTGRES_DB:-uztemiryol}
+      # WebSocket uchun ko'p-workerli channel layer (Redis)
+      REDIS_URL: redis://redis:6379/0
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
+      DJANGO_SECURE_SSL_REDIRECT: "False"
+    ports:
+      - "8000:8000"
+
+volumes:
+  pgdata:

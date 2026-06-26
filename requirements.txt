@@ -1,0 +1,28 @@
+# ── UZ Temiryo'l — Django backend (Firestore → DRF + PostgreSQL migratsiyasi) ──
+# O'rnatish:  ../venv/Scripts/python -m pip install -r requirements.txt
+
+Django==6.0.6
+djangorestframework==3.16.1
+PyJWT==2.10.1
+django-cors-headers==4.9.0
+django-filter==25.2
+
+# Real-time (WebSocket) — Django Channels
+channels==4.2.0
+daphne==4.1.2
+uvicorn[standard]==0.34.0
+# Production (ko'p-workerli) uchun Redis channel layer — REDIS_URL berilganda
+channels-redis==4.2.1
+
+# PostgreSQL drayveri (psycopg v3 — Django 6 tomonidan native qo'llab-quvvatlanadi)
+psycopg[binary]==3.2.10
+
+# Konfiguratsiya / deploy
+dj-database-url==2.3.0
+python-dotenv==1.0.1
+gunicorn==23.0.0
+whitenoise==6.8.2
+tzdata==2025.2
+
+# Server tomonida Excel eksport (ixtiyoriy)
+openpyxl==3.1.5

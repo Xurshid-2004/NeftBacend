@@ -1,0 +1,9 @@
+# Repozitoriyda barcha matn fayllar LF bilan saqlansin (Linux serverda CRLF muammosi bo'lmasin)
+* text=auto eol=lf
+
+# Aniq LF talab qiladigan fayllar (shell, Docker, Procfile)
+*.sh   text eol=lf
+*.py   text eol=lf
+Dockerfile text eol=lf
+Procfile   text eol=lf
+*.conf text eol=lf
