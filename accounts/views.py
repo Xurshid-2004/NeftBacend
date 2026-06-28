@@ -75,9 +75,13 @@ def _build_staff_session(code: str) -> dict | None:
     if not zap:
         return None
 
+    # Operator xodimi "operator" rolida kiradi (o'z zapravka operator bo'limiga
+    # tushadi); qolgan xodimlar avvalgidek "worker".
+    role = "operator" if (staff.role or "").strip() == "operator" else "worker"
+
     return {
         "code": code,
-        "role": "worker",
+        "role": role,
         "nodeId": zap.uzelId,
         "stationId": zap.id,
         "displayName": staff_name,

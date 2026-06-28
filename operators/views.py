@@ -8,10 +8,11 @@ Operator balans API — `operator-balance.ts` chaqiruvlariga mos:
 
 from __future__ import annotations
 
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdmin, IsAuthenticated
+from accounts.permissions import IsAuthenticated
 
 from . import services
 from .models import OperatorStationBalance
@@ -48,21 +49,33 @@ class SubtractView(APIView):
         return Response(state or {"stationId": station_id, "balanceKg": 0, "overlimitKg": 0, "exceededKg": 0})
 
 
-class SetView(APIView):
-    """Admin: balansni aniq qiymatga o'rnatadi."""
+def _station_for(request):
+    """Admin: so'rovdagi stationId; operator: faqat o'z stansiyasi; aks holda 403."""
+    user = request.user
+    if getattr(user, "is_admin", False):
+        return request.data.get("stationId")
+    if getattr(user, "role", None) == "operator":
+        return user.stationId
+    raise PermissionDenied("Faqat admin yoki operator balansni o'zgartira oladi.")
 
-    permission_classes = [IsAdmin]
+
+class SetView(APIView):
+    """Admin yoki operator: balansni o'rnatadi (operator faqat o'z stansiyasi)."""
+
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        state = services.set_balance(request.data.get("stationId"), request.data.get("amountKg"))
+        station_id = _station_for(request)
+        state = services.set_balance(station_id, request.data.get("amountKg"))
         return Response(state or {})
 
 
 class ChangeView(APIView):
-    """Admin: balansni delta bilan o'zgartiradi (+/-)."""
+    """Admin yoki operator: balansni delta bilan o'zgartiradi (operator faqat o'z stansiyasi)."""
 
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        state = services.change_balance(request.data.get("stationId"), request.data.get("deltaKg"))
+        station_id = _station_for(request)
+        state = services.change_balance(station_id, request.data.get("deltaKg"))
         return Response(state or {})
