@@ -5,7 +5,7 @@ Login tartibi (frontend `app/(auth)/login/page.tsx` bilan bir xil):
   1. access_codes/{code}: role admin|developer va isActive -> admin/developer sessiya
   2. staff.tabelNumber == code -> worker sessiya (stationId zapravka nomidan aniqlanadi)
   3. blocked_codes/{code} mavjud bo'lsa -> rad etiladi
-  4. Hech biri mos kelmasa -> 401 "siz bizda shubxa uyg'otdingiz"
+  4. Hech biri mos kelmasa -> 401 "ВЫ ВЫЗВАЛИ У НАС ПОДОЗРЕНИЕ"
 """
 
 from __future__ import annotations
@@ -111,7 +111,7 @@ class LoginView(APIView):
                 type="wrong_code", code=code, deviceId=device_id, timestamp=now_ms()
             )
             return Response(
-                {"detail": "siz bizda shubxa uyg'otdingiz"},
+                {"detail": "ВЫ ВЫЗВАЛИ У НАС ПОДОЗРЕНИЕ"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
