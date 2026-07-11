@@ -35,7 +35,9 @@ def _calculate_zapravka_summary(zap: dict, submissions: list[dict]) -> dict:
         return len([l for l in lokomotiv if l.get("harakatTuri") == t])
 
     yuk = loko_by_type("yuk")
-    yolovchi = loko_by_type("yolovchi")
+    # "prigor" — pригородный, hisobotda "yolovchi" ustuniga qo'shib ko'rsatiladi
+    # (alohida ustun yo'q, xuddi "arenda" ijara'ga qo'shilgani kabi).
+    yolovchi = loko_by_type("yolovchi") + loko_by_type("prigor")
     manyovr = loko_by_type("manyovr")
     xojalik = loko_by_type("xojalik")
     ijara = loko_by_type("ijara") + loko_by_type("arenda")
@@ -67,7 +69,7 @@ def _calculate_zapravka_summary(zap: dict, submissions: list[dict]) -> dict:
         "dizMasla": round2(diz_masla),
         "teplovozCount": {
             "yuk": count_by_type("yuk"),
-            "yolovchi": count_by_type("yolovchi"),
+            "yolovchi": count_by_type("yolovchi") + count_by_type("prigor"),
             "manyovr": count_by_type("manyovr"),
             "xojalik": count_by_type("xojalik"),
             "ijara": count_by_type("ijara") + count_by_type("arenda"),

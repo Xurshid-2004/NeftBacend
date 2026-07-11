@@ -30,7 +30,7 @@ from .models import (
     SecurityEvent,
     Staff,
 )
-from .permissions import IsAdmin
+from .permissions import IsAdmin, IsAdminOrReadOnly
 from .serializers import (
     AccessCodeSerializer,
     ActiveSessionSerializer,
@@ -205,7 +205,7 @@ class AccessCodeViewSet(viewsets.ModelViewSet):
 class StaffViewSet(viewsets.ModelViewSet):
     queryset = Staff.objects.all()
     serializer_class = StaffSerializer
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdminOrReadOnly]
     filterset_fields = ["erju", "zapravka", "stationId", "role"]
     search_fields = ["tabelNumber", "fullName", "zapravka"]
 

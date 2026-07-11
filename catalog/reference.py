@@ -28,7 +28,7 @@ ZAPRAVKALAR = [
     # РЖУ-Қўқон
     {"id": "andijon", "uzelId": "rju-qoqon", "name": "Andijon", "slug": "andijon"},
     {"id": "qoqon", "uzelId": "rju-qoqon", "name": "Qoqon", "slug": "qoqon"},
-    {"id": "marglon", "uzelId": "rju-qoqon", "name": "Marg'lon", "slug": "marglon"},
+    {"id": "marglon", "uzelId": "rju-qoqon", "name": "Marg'ilon", "slug": "marglon"},
     # РЖУ-Бухоро
     {"id": "samarqand", "uzelId": "rju-buxoro", "name": "Samarqand", "slug": "samarqand"},
     {"id": "ziyovuddin", "uzelId": "rju-buxoro", "name": "Ziyovuddin", "slug": "ziyovuddin"},
@@ -42,7 +42,7 @@ ZAPRAVKALAR = [
     # РЖУ-Қарши
     {"id": "qarshi", "uzelId": "rju-qarshi", "name": "Qarshi", "slug": "qarshi"},
     # РЖУ-Термиз
-    {"id": "termez", "uzelId": "rju-termiz", "name": "Termez", "slug": "termez"},
+    {"id": "termez", "uzelId": "rju-termiz", "name": "Termiz", "slug": "termez"},
     {"id": "darband", "uzelId": "rju-termiz", "name": "Darband", "slug": "darband"},
     {"id": "qumqurgon", "uzelId": "rju-termiz", "name": "Qumqurg'on", "slug": "qumqurgon"},
 ]
