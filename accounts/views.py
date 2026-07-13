@@ -2,10 +2,13 @@
 Auth oqimi (login sahifasi mantig'ining backend ko'chirmasi) + CRUD viewsetlar.
 
 Login tartibi (frontend `app/(auth)/login/page.tsx` bilan bir xil):
+  0. device_locks/{deviceId}.isBlocked bo'lsa -> 403, kod tekshirilmaydi
   1. access_codes/{code}: role admin|developer va isActive -> admin/developer sessiya
   2. staff.tabelNumber == code -> worker sessiya (stationId zapravka nomidan aniqlanadi)
   3. blocked_codes/{code} mavjud bo'lsa -> rad etiladi
-  4. Hech biri mos kelmasa -> 401 "ВЫ ВЫЗВАЛИ У НАС ПОДОЗРЕНИЕ"
+  4. Hech biri mos kelmasa -> 401 "ВЫ ВЫЗВАЛИ У НАС ПОДОЗРЕНИЕ" + shu qurilmaning
+     xato hisobi +1; 3-chi xatoda device_locks/{deviceId}.isBlocked=True (faqat shu
+     qurilma bloklanadi, kod yoki boshqa foydalanuvchilarga taʼsir qilmaydi)
 """
 
 from __future__ import annotations
@@ -39,6 +42,10 @@ from .serializers import (
     SecurityEventSerializer,
     StaffSerializer,
 )
+
+# Shu qurilmadan ketma-ket shuncha marta noto'g'ri kod kiritilsa, faqat o'sha
+# qurilma (deviceId) bloklanadi — boshqa foydalanuvchilarga taʼsir qilmaydi.
+DEVICE_LOCKOUT_THRESHOLD = 3
 
 
 def _build_admin_session(code: str) -> dict | None:
@@ -104,12 +111,42 @@ class LoginView(APIView):
                 {"detail": "Kod kiritilmadi."}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        device_lock = DeviceLock.objects.filter(pk=device_id).first() if device_id else None
+        if device_lock and device_lock.isBlocked:
+            return Response(
+                {"detail": "Bu qurilma bloklangan. Administratorga murojaat qiling."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         session = _build_admin_session(code) or _build_staff_session(code)
 
         if not session:
             SecurityEvent.objects.create(
                 type="wrong_code", code=code, deviceId=device_id, timestamp=now_ms()
             )
+
+            if device_id:
+                device_lock, _ = DeviceLock.objects.get_or_create(deviceId=device_id)
+                device_lock.attempts = (device_lock.attempts or 0) + 1
+                device_lock.lockedCode = code
+
+                if device_lock.attempts >= DEVICE_LOCKOUT_THRESHOLD:
+                    device_lock.isBlocked = True
+                    device_lock.lockedAt = now_ms()
+                    device_lock.save()
+                    SecurityEvent.objects.create(
+                        type="device_locked", code=code, deviceId=device_id, timestamp=now_ms()
+                    )
+                    return Response(
+                        {
+                            "detail": "Bu qurilma bloklandi: 3 marta noto'g'ri kod kiritildi. "
+                            "Administratorga murojaat qiling."
+                        },
+                        status=status.HTTP_403_FORBIDDEN,
+                    )
+
+                device_lock.save()
+
             return Response(
                 {"detail": "ВЫ ВЫЗВАЛИ У НАС ПОДОЗРЕНИЕ"},
                 status=status.HTTP_401_UNAUTHORIZED,
@@ -123,6 +160,11 @@ class LoginView(APIView):
                 {"detail": "Bu kirish kodi bloklangan. Administratorga murojaat qiling."},
                 status=status.HTTP_403_FORBIDDEN,
             )
+
+        # To'g'ri kod kiritildi — shu qurilmaning oldingi xato hisobini tozalaymiz.
+        if device_lock and device_lock.attempts:
+            device_lock.attempts = 0
+            device_lock.save()
 
         # Presence sessiyasi (active_sessions ekvivalenti)
         uid = uuid.uuid4().hex

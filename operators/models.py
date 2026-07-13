@@ -44,3 +44,32 @@ class OperatorOverlimit(models.Model):
 
     def __str__(self):
         return f"{self.stationId}: +{self.amountKg}kg over"
+
+
+class OperatorShipment(models.Model):
+    """Stansiyalar orasida (yoki realizatsiyadan stansiyaga) yoqilg'i jo'natmasi.
+
+    Frontend `operator_pending_shipments` (localStorage) massividagi bitta
+    elementga mos — id frontendda `crypto.randomUUID()` bilan yaratiladi va
+    shu holicha primary key sifatida saqlanadi.
+    """
+
+    STATUS_CHOICES = [("pending", "pending"), ("accepted", "accepted")]
+
+    id = models.CharField(max_length=64, primary_key=True)
+    fromStationId = models.CharField(max_length=64, db_index=True)
+    fromStationName = models.CharField(max_length=200, blank=True, default="")
+    toStationId = models.CharField(max_length=64, db_index=True)
+    toStationName = models.CharField(max_length=200, blank=True, default="")
+    amountKg = models.FloatField(default=0)
+    createdAt = models.BigIntegerField(default=now_ms)
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending")
+    acceptedAt = models.BigIntegerField(null=True, blank=True)
+    acceptedKg = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        db_table = "operator_shipments"
+        ordering = ["-createdAt"]
+
+    def __str__(self):
+        return f"{self.fromStationId} -> {self.toStationId}: {self.amountKg}kg ({self.status})"
