@@ -3,6 +3,7 @@ from django.urls import path
 from .views import (
     BalanceListView,
     ChangeView,
+    ResetAllView,
     SetView,
     ShipmentAcceptView,
     ShipmentDeleteView,
@@ -15,6 +16,7 @@ urlpatterns = [
     path("operator/subtract/", SubtractView.as_view(), name="operator-subtract"),
     path("operator/set/", SetView.as_view(), name="operator-set"),
     path("operator/change/", ChangeView.as_view(), name="operator-change"),
+    path("operator/reset/", ResetAllView.as_view(), name="operator-reset"),
     path("operator/shipments/", ShipmentListCreateView.as_view(), name="operator-shipments"),
     path(
         "operator/shipments/<str:shipment_id>/accept/",

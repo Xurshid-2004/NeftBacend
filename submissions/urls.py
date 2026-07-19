@@ -11,4 +11,9 @@ router.register("yearly-summaries", views.YearlySummaryViewSet, basename="yearly
 
 urlpatterns = [
     path("", include(router.urls)),
+    path(
+        "korxona-worker-codes/",
+        views.KorxonaWorkerCodeListView.as_view(),
+        name="korxona-worker-codes",
+    ),
 ]

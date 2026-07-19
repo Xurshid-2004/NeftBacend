@@ -188,3 +188,25 @@ class YearlySummary(_SummaryBase):
 
     def __str__(self):
         return self.docId
+
+
+class KorxonaWorkerCode(models.Model):
+    """
+    Worker panel — korxona forma: har bir worker o'zi tanlagan qidiruv raqamini
+    korxona nomiga biriktiradi (masalan 777 -> "Buxoro vagon deposi"). `staffCode`
+    orqali saqlanadi, shuning uchun worker qaysi qurilmadan kirmasin o'zi
+    biriktirgan raqamlarni ko'ra oladi.
+    """
+
+    staffCode = models.CharField(max_length=64, db_index=True)
+    korxonaNomi = models.CharField(max_length=200)
+    code = models.CharField(max_length=32)
+    updatedAt = models.BigIntegerField(default=now_ms)
+
+    class Meta:
+        db_table = "korxona_worker_codes"
+        unique_together = [("staffCode", "korxonaNomi")]
+        ordering = ["korxonaNomi"]
+
+    def __str__(self):
+        return f"{self.staffCode}: {self.korxonaNomi} -> {self.code}"

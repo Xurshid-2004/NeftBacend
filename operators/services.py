@@ -145,8 +145,12 @@ def create_shipment(data: dict) -> OperatorShipment | None:
     return shipment
 
 
-def accept_shipment(shipment_id: str, accepted_kg) -> OperatorShipment | None:
-    """Pending jo'natmani qabul qilingan deb belgilaydi (acceptedKg > 0 shart)."""
+def accept_shipment(shipment_id: str, accepted_kg) -> tuple[OperatorShipment, OperatorStationBalance] | None:
+    """
+    Pending jo'natmani qabul qilingan deb belgilaydi VA manzil stansiya balansiga
+    qabul qilingan miqdorni qo'shadi — ikkalasi bitta atomik tranzaksiyada.
+    Frontend endi balansni o'zi hisoblamaydi, shu yerdan qaytgan qiymatni ko'rsatadi.
+    """
     amount = _norm(accepted_kg)
     if not shipment_id or amount <= 0:
         return None
@@ -164,8 +168,26 @@ def accept_shipment(shipment_id: str, accepted_kg) -> OperatorShipment | None:
         shipment.acceptedKg = amount
         shipment.save()
 
+        bal, _ = OperatorStationBalance.objects.select_for_update().get_or_create(
+            stationId=shipment.toStationId
+        )
+        bal.balanceKg = _norm((bal.balanceKg or 0.0) + amount)
+        bal.overlimitKg = 0.0
+        bal.updatedAt = now_ms()
+        bal.save()
+
     _broadcast_shipments()
-    return shipment
+    _broadcast(shipment.toStationId)
+    return shipment, bal
+
+
+def reset_all() -> None:
+    """Demo/sinov uchun: barcha stansiya balanslari va jo'natmalarni butunlay tozalaydi."""
+    with transaction.atomic():
+        OperatorStationBalance.objects.all().delete()
+        OperatorShipment.objects.all().delete()
+
+    _broadcast_shipments()
 
 
 def delete_shipment(shipment_id: str) -> bool:

@@ -12,11 +12,17 @@ from datetime import datetime
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
-from .models import DailySummary, FuelRecord, Submission, YearlySummary
+from accounts.permissions import IsAuthenticated
+from common.timeutil import now_ms
+from operators.services import subtract as subtract_operator_balance
+
+from .models import DailySummary, FuelRecord, KorxonaWorkerCode, Submission, YearlySummary
 from .serializers import (
     DailySummarySerializer,
     FuelRecordSerializer,
+    KorxonaWorkerCodeSerializer,
     SubmissionSerializer,
     YearlySummarySerializer,
 )
@@ -88,6 +94,15 @@ class SubmissionViewSet(viewsets.ModelViewSet):
             data.pop("reportDateOverride", None)
 
         sub = create_submission(category, data, report_date_override=override)
+
+        if category == "lokomotiv":
+            try:
+                subtract_operator_balance(sub.stationId, data.get("qanchaBerildi"))
+            except Exception as exc:  # noqa: BLE001 — balans xatosi submissionni buzmasin
+                import logging
+
+                logging.getLogger(__name__).warning("operator balansi ayirilmadi: %s", exc)
+
         ser = self.get_serializer(sub)
         return Response(ser.data, status=status.HTTP_201_CREATED)
 
@@ -154,3 +169,41 @@ class YearlySummaryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = YearlySummary.objects.all()
     serializer_class = YearlySummarySerializer
     filterset_fields = ["stationId", "category", "year"]
+
+
+class KorxonaWorkerCodeListView(APIView):
+    """
+    Worker panel — korxona forma: har bir worker o'zi biriktirgan qidiruv
+    raqamlarini shu yerdan o'qiydi/yozadi. Har doim JWT'dagi `staffCode`
+    (token egasi) bo'yicha ishlaydi — boshqa workerning yozuvlarini na ko'radi,
+    na o'zgartira oladi.
+
+    GET  /api/korxona-worker-codes/ -> joriy workerning barcha (nom -> raqam) juftliklari
+    POST /api/korxona-worker-codes/ -> bitta juftlikni yaratadi/yangilaydi;
+         `code` bo'sh yuborilsa — o'sha nom uchun biriktirilgan raqam o'chiriladi
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        staff_code = getattr(request.user, "code", "") or ""
+        qs = KorxonaWorkerCode.objects.filter(staffCode=staff_code)
+        return Response(KorxonaWorkerCodeSerializer(qs, many=True).data)
+
+    def post(self, request):
+        staff_code = getattr(request.user, "code", "") or ""
+        korxona_nomi = str(request.data.get("korxonaNomi") or "").strip()
+        code = str(request.data.get("code") or "").strip()
+        if not staff_code or not korxona_nomi:
+            raise ValidationError({"korxonaNomi": "majburiy"})
+
+        if not code:
+            KorxonaWorkerCode.objects.filter(staffCode=staff_code, korxonaNomi=korxona_nomi).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        obj, _ = KorxonaWorkerCode.objects.update_or_create(
+            staffCode=staff_code,
+            korxonaNomi=korxona_nomi,
+            defaults={"code": code, "updatedAt": now_ms()},
+        )
+        return Response(KorxonaWorkerCodeSerializer(obj).data, status=status.HTTP_201_CREATED)

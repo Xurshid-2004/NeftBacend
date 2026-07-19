@@ -107,17 +107,25 @@ class ShipmentListCreateView(APIView):
 
 
 class ShipmentAcceptView(APIView):
-    """POST /api/operator/shipments/<id>/accept/ -> pending jo'natmani qabul qilingan deb belgilaydi."""
+    """
+    POST /api/operator/shipments/<id>/accept/ -> pending jo'natmani qabul qilingan
+    deb belgilaydi va manzil stansiya balansini bitta atomik amalda yangilaydi.
+    Javobga yangilangan balans ham qo'shiladi (`balance`) — frontend uni o'zi
+    hisoblamasdan, to'g'ridan-to'g'ri ko'rsatishi uchun.
+    """
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request, shipment_id):
-        shipment = services.accept_shipment(shipment_id, request.data.get("acceptedKg"))
-        if shipment is None:
+        result = services.accept_shipment(shipment_id, request.data.get("acceptedKg"))
+        if result is None:
             return Response(
                 {"detail": "Jo'natma topilmadi yoki allaqachon qabul qilingan."}, status=404
             )
-        return Response(OperatorShipmentSerializer(shipment).data)
+        shipment, balance = result
+        data = OperatorShipmentSerializer(shipment).data
+        data["balance"] = OperatorStationBalanceSerializer(balance).data
+        return Response(data)
 
 
 class ShipmentDeleteView(APIView):
@@ -128,4 +136,17 @@ class ShipmentDeleteView(APIView):
     def delete(self, request, shipment_id):
         if not services.delete_shipment(shipment_id):
             return Response({"detail": "Jo'natma topilmadi."}, status=404)
+        return Response(status=204)
+
+
+class ResetAllView(APIView):
+    """
+    POST /api/operator/reset/ -> faqat admin: demo/sinov uchun operator bo'limidagi
+    BARCHA stansiya balanslari va jo'natmalarni butunlay tozalaydi (qaytarib bo'lmaydi).
+    """
+
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        services.reset_all()
         return Response(status=204)

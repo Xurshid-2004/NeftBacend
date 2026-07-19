@@ -13,7 +13,7 @@ from rest_framework import serializers
 
 from common.drf import MsModelSerializer
 
-from .models import DailySummary, FuelRecord, Submission, YearlySummary
+from .models import DailySummary, FuelRecord, KorxonaWorkerCode, Submission, YearlySummary
 
 
 class SubmissionSerializer(MsModelSerializer):
@@ -50,3 +50,9 @@ class YearlySummarySerializer(MsModelSerializer):
     class Meta:
         model = YearlySummary
         fields = "__all__"
+
+
+class KorxonaWorkerCodeSerializer(MsModelSerializer):
+    class Meta:
+        model = KorxonaWorkerCode
+        fields = ["korxonaNomi", "code", "updatedAt"]
