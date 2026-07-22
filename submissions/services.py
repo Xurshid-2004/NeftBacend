@@ -178,11 +178,24 @@ def _supply_point(station_id: str) -> str:
     return zap.name if zap else station_id
 
 
+def _normalize_entered_time(raw) -> str:
+    """Formadagi qo'lda kiritilgan soat ("HH:mm"); noto'g'ri bo'lsa "" qaytadi."""
+    text = str(raw or "").strip()
+    match = re.match(r"^(\d{1,2})[:.](\d{1,2})", text)
+    if not match:
+        return ""
+    hours, minutes = int(match.group(1)), int(match.group(2))
+    if hours > 23 or minutes > 59:
+        return ""
+    return f"{hours:02d}:{minutes:02d}"
+
+
 def _write_fuel_record_lokomotiv(data: dict, now) -> None:
     """lokomotiv-service.ts -> addFuelRecord ekvivalenti."""
     date_iso = data.get("dateISO")
     date = date_iso if isinstance(date_iso, str) else to_local_date_iso(now)
-    time = f"{now.hour:02d}:{now.minute:02d}"
+    # Ishchi formada kiritgan soat ustuvor, bo'lmasa — yozuv vaqti.
+    time = _normalize_entered_time(data.get("enteredTime")) or f"{now.hour:02d}:{now.minute:02d}"
 
     harakat = data.get("harakatTuri")
     if harakat == "manyovr":
@@ -234,7 +247,11 @@ def _append_fuel_record_erju(move_type: str, base: dict, now) -> None:
         return
 
     date = base.get("dateISO") or to_local_date_iso(now)
-    time = base.get("time") or f"{now.hour:02d}:{now.minute:02d}"
+    time = (
+        _normalize_entered_time(base.get("enteredTime"))
+        or base.get("time")
+        or f"{now.hour:02d}:{now.minute:02d}"
+    )
 
     FuelRecord.objects.create(
         date=date,
@@ -277,6 +294,7 @@ def _write_fuel_record(data: dict, now) -> None:
                     "stationId": data["stationId"],
                     "staffCode": data.get("staffCode"),
                     "staffName": data.get("staffName"),
+                    "enteredTime": data.get("enteredTime"),
                     "locoNumber": data.get("poyezdNumber"),
                     "fuelAmountKg": data.get("qancha"),
                     "trainIndex": data.get("ruxsatIndeksi"),
@@ -290,6 +308,7 @@ def _write_fuel_record(data: dict, now) -> None:
                     "stationId": data["stationId"],
                     "staffCode": data.get("staffCode"),
                     "staffName": data.get("staffName"),
+                    "enteredTime": data.get("enteredTime"),
                     "locoSeries": data.get("seriya"),
                     "locoCode": data.get("raqami"),
                     "fuelAmountKg": data.get("qanchaBerildi"),
@@ -306,6 +325,7 @@ def _write_fuel_record(data: dict, now) -> None:
                     "stationId": data["stationId"],
                     "staffCode": data.get("staffCode"),
                     "staffName": data.get("staffName"),
+                    "enteredTime": data.get("enteredTime"),
                     "fuelAmountKg": data.get("qanchaBerildi"),
                     "dizMaslaKg": data.get("dizMasla"),
                     "locoSeries": data.get("seriya"),
@@ -443,9 +463,12 @@ def delete_submission(sub: Submission) -> None:
     """submission-mutations.ts -> deleteSubmissionWithSummary ekvivalenti."""
     data = _submission_to_dict(sub)
     station_id, category, pk = sub.stationId, sub.category, sub.pk
-    sub.delete()
-    if _has_standard_marker(data):
-        _apply_summary_delta(data, -1, -1)
+    # Atomik: yozuvni o'chirish va summaryни kamaytirish birga bajariladi. Aks holda
+    # (qulf/xato yuz bersa) yozuv o'chib, summary kamaymay qolib, hisobot chalkasharди.
+    with transaction.atomic():
+        sub.delete()
+        if _has_standard_marker(data):
+            _apply_summary_delta(data, -1, -1)
     try:
         from realtime.broadcast import broadcast_submission
 

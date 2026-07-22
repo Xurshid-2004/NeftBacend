@@ -59,6 +59,14 @@ def _station_for(request):
     raise PermissionDenied("Faqat admin yoki operator balansni o'zgartira oladi.")
 
 
+def _require_operator_or_admin(request):
+    """Markaziy tankni faqat admin/developer yoki operator o'zgartira oladi."""
+    user = request.user
+    if getattr(user, "is_admin", False) or getattr(user, "role", None) == "operator":
+        return
+    raise PermissionDenied("Faqat admin yoki operator markaziy tankni o'zgartira oladi.")
+
+
 class SetView(APIView):
     """Admin yoki operator: balansni o'rnatadi (operator faqat o'z stansiyasi)."""
 
@@ -150,3 +158,75 @@ class ResetAllView(APIView):
     def post(self, request):
         services.reset_all()
         return Response(status=204)
+
+
+class CentralTankView(APIView):
+    """
+    GET  /api/operator/central-tank/          -> markaziy tank holati (balans + tarix)
+    POST /api/operator/central-tank/purchase/ -> yoqilg'i sotib olish (balansga qo'shadi)
+    POST /api/operator/central-tank/subtract/ -> realizatsiyadan ayirish
+    Faqat admin/operator o'zgartiradi; hamma (autentifikatsiyalangan) o'qiy oladi.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        return Response(services.read_central_tank())
+
+
+class CentralTankPurchaseView(APIView):
+    """Yoqilg'i sotib olindi — markaziy tank balansiga qo'shiladi (faqat admin/operator)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        _require_operator_or_admin(request)
+        state = services.add_central_purchase(
+            request.data.get("amountKg"),
+            request.data.get("source"),
+            request.data.get("id"),
+        )
+        if state is None:
+            return Response({"detail": "Sotib olingan miqdor noto'g'ri."}, status=400)
+        return Response(state)
+
+
+class CentralTankSubtractView(APIView):
+    """Realizatsiyadan tarqatilganda markaziy tankdan ayiradi (faqat admin/operator)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        _require_operator_or_admin(request)
+        state = services.subtract_central(request.data.get("amountKg"))
+        if state is None:
+            return Response({"detail": "Ayiriladigan miqdor noto'g'ri."}, status=400)
+        return Response(state)
+
+
+class CentralTankDistributeView(APIView):
+    """
+    POST /api/operator/central-tank/distribute/ -> realizatsiyadan zapravkaga
+    tarqatadi: markaziy tankdan ayirish + jo'natma yaratish BITTA atomik amalda.
+    Tankda yetarli yoqilg'i bo'lmasa 409 bilan RAD etadi (hech narsa o'zgarmaydi).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        _require_operator_or_admin(request)
+        result = services.distribute_from_central(request.data)
+        if not result.get("ok"):
+            if result.get("reason") == "insufficient":
+                return Response(
+                    {
+                        "detail": "Markaziy tankda yetarli yoqilg'i yo'q.",
+                        "available": result.get("available", 0),
+                    },
+                    status=409,
+                )
+            return Response({"detail": "Tarqatish ma'lumotlari noto'g'ri."}, status=400)
+
+        data = OperatorShipmentSerializer(result["shipment"]).data
+        data["tank"] = result["tank"]
+        return Response(data, status=201)

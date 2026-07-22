@@ -73,3 +73,39 @@ class OperatorShipment(models.Model):
 
     def __str__(self):
         return f"{self.fromStationId} -> {self.toStationId}: {self.amountKg}kg ({self.status})"
+
+
+class OperatorCentralTank(models.Model):
+    """Markaziy (sotib olingan) yoqilg'i tanki — realizatsiya bo'limi shu tankdan tarqatadi.
+
+    Bitta yozuv (singleton, id="main"):
+      * yoqilg'i sotib olinganda balans oshadi (OperatorCentralPurchase yoziladi),
+      * realizatsiya panelidan zapravkaga tarqatilganda balans kamayadi.
+    """
+
+    id = models.CharField(max_length=32, primary_key=True, default="main")
+    balanceKg = models.FloatField(default=0)
+    totalPurchasedKg = models.FloatField(default=0)
+    updatedAt = models.BigIntegerField(default=now_ms)
+
+    class Meta:
+        db_table = "operator_central_tank"
+
+    def __str__(self):
+        return f"markaziy tank: {self.balanceKg}kg"
+
+
+class OperatorCentralPurchase(models.Model):
+    """Markaziy tankka sotib olingan yoqilg'i tarixi (qancha, qayerdan)."""
+
+    id = models.CharField(max_length=64, primary_key=True)
+    amountKg = models.FloatField(default=0)
+    source = models.CharField(max_length=200, blank=True, default="")
+    createdAt = models.BigIntegerField(default=now_ms)
+
+    class Meta:
+        db_table = "operator_central_purchases"
+        ordering = ["-createdAt"]
+
+    def __str__(self):
+        return f"+{self.amountKg}kg ({self.source})"

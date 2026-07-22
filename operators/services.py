@@ -17,7 +17,12 @@ from django.db import transaction
 from common.numbers import js_round, parse_pdf_number
 from common.timeutil import now_ms
 
-from .models import OperatorShipment, OperatorStationBalance
+from .models import (
+    OperatorCentralPurchase,
+    OperatorCentralTank,
+    OperatorShipment,
+    OperatorStationBalance,
+)
 
 
 def _norm(kg) -> float:
@@ -186,8 +191,156 @@ def reset_all() -> None:
     with transaction.atomic():
         OperatorStationBalance.objects.all().delete()
         OperatorShipment.objects.all().delete()
+        OperatorCentralTank.objects.all().delete()
+        OperatorCentralPurchase.objects.all().delete()
 
     _broadcast_shipments()
+    _broadcast("central-tank")
+
+
+# --- Markaziy (sotib olingan) yoqilg'i tanki ---------------------------------
+# Realizatsiya bo'limi shu yagona tankdan tarqatadi: sotib olinganda balans
+# oshadi, zapravkaga tarqatilganda kamayadi. Stansiya balanslari bilan bir xil
+# naqsh (atomik + "operator" topikiga broadcast).
+
+CENTRAL_TANK_ID = "main"
+# Realizatsiya paneli (frontenddagi REALIZATION_STATION_ID bilan bir xil) —
+# markaziy tankdan tarqatilgan jo'natmalarning "from" stansiyasi.
+REALIZATION_STATION_ID = "realizatsiya-paneli"
+REALIZATION_STATION_NAME = "Realizatsiya paneli"
+
+
+def _central_state(tank: OperatorCentralTank) -> dict:
+    purchases = list(OperatorCentralPurchase.objects.all()[:100])
+    return {
+        "balanceKg": tank.balanceKg,
+        "totalPurchasedKg": tank.totalPurchasedKg,
+        "updatedAt": tank.updatedAt,
+        "purchases": [
+            {
+                "id": p.id,
+                "amountKg": p.amountKg,
+                "source": p.source,
+                "createdAt": p.createdAt,
+            }
+            for p in purchases
+        ],
+    }
+
+
+def read_central_tank() -> dict:
+    tank, _ = OperatorCentralTank.objects.get_or_create(id=CENTRAL_TANK_ID)
+    return _central_state(tank)
+
+
+def add_central_purchase(amount_kg, source, purchase_id=None) -> dict | None:
+    """Markaziy tankka yoqilg'i sotib olinganda: balans va jami sotib olishga qo'shadi.
+
+    Idempotent: agar shu `id` bilan sotib olish allaqachon yozilgan bo'lsa (so'rov
+    qayta yuborilgan / takroriy bosilgan bo'lsa), balansni QAYTA oshirmaydi —
+    mavjud holatni qaytaradi. Tank qatorini avval qulflaymiz, shuning uchun bir xil
+    id bilan parallel so'rovlar ham xavfsiz (dublikat / ikki karra qo'shish bo'lmaydi).
+    """
+    amount = _norm(amount_kg)
+    if amount <= 0:
+        return None
+
+    src = str(source or "").strip()[:200]
+    pid = str(purchase_id or uuid.uuid4()).strip() or str(uuid.uuid4())
+
+    with transaction.atomic():
+        tank, _ = OperatorCentralTank.objects.select_for_update().get_or_create(
+            id=CENTRAL_TANK_ID
+        )
+        if OperatorCentralPurchase.objects.filter(id=pid).exists():
+            # Allaqachon hisoblangan — idempotentlik.
+            return _central_state(tank)
+
+        OperatorCentralPurchase.objects.create(
+            id=pid, amountKg=amount, source=src, createdAt=now_ms()
+        )
+        tank.balanceKg = _norm((tank.balanceKg or 0.0) + amount)
+        tank.totalPurchasedKg = _norm((tank.totalPurchasedKg or 0.0) + amount)
+        tank.updatedAt = now_ms()
+        tank.save()
+
+    _broadcast("central-tank")
+    return _central_state(tank)
+
+
+def distribute_from_central(data: dict) -> dict:
+    """Realizatsiyadan zapravkaga tarqatadi: markaziy tankdan ayirish + jo'natma
+    yaratish BITTA atomik amalda.
+
+    Tankda yetarli yoqilg'i bo'lmasa — RAD etadi (hech narsa o'zgarmaydi). Shu tarzda
+    ikki kishi bir vaqtda tarqatsa ham tank manfiyga tushmaydi va jo'natmalar yig'indisi
+    sotib olingandan oshib ketmaydi.
+
+    Idempotent: shu `id` bilan jo'natma allaqachon bo'lsa, qayta ayirmaydi.
+
+    Qaytaradi:
+      {"ok": True,  "shipment": <OperatorShipment>, "tank": <state>}
+      {"ok": False, "reason": "invalid"}
+      {"ok": False, "reason": "insufficient", "available": <kg>}
+    """
+    to_station_id = str(data.get("toStationId") or "").strip()
+    amount = _norm(data.get("amountKg"))
+    if not to_station_id or amount <= 0:
+        return {"ok": False, "reason": "invalid"}
+
+    shipment_id = str(data.get("id") or uuid.uuid4()).strip() or str(uuid.uuid4())
+
+    with transaction.atomic():
+        tank, _ = OperatorCentralTank.objects.select_for_update().get_or_create(
+            id=CENTRAL_TANK_ID
+        )
+
+        existing = OperatorShipment.objects.filter(id=shipment_id).first()
+        if existing is not None:
+            # Idempotentlik: allaqachon yaratilgan, qayta ayirmaymiz.
+            return {"ok": True, "shipment": existing, "tank": _central_state(tank)}
+
+        available = tank.balanceKg or 0.0
+        # Kichik epsilon — suzuvchi nuqta yaxlitlash chekkasi uchun.
+        if amount > available + 1e-9:
+            return {"ok": False, "reason": "insufficient", "available": _norm(available)}
+
+        tank.balanceKg = _norm(max(0.0, available - amount))
+        tank.updatedAt = now_ms()
+        tank.save()
+
+        shipment = OperatorShipment.objects.create(
+            id=shipment_id,
+            fromStationId=REALIZATION_STATION_ID,
+            fromStationName=REALIZATION_STATION_NAME,
+            toStationId=to_station_id,
+            toStationName=data.get("toStationName") or to_station_id,
+            amountKg=amount,
+            createdAt=now_ms(),
+            status="pending",
+        )
+
+    _broadcast_shipments()
+    _broadcast("central-tank")
+    return {"ok": True, "shipment": shipment, "tank": _central_state(tank)}
+
+
+def subtract_central(amount_kg) -> dict | None:
+    """Realizatsiyadan tarqatilganda: markaziy tank balansidan ayiradi (0 gacha)."""
+    amount = _norm(amount_kg)
+    if amount <= 0:
+        return None
+
+    with transaction.atomic():
+        tank, _ = OperatorCentralTank.objects.select_for_update().get_or_create(
+            id=CENTRAL_TANK_ID
+        )
+        tank.balanceKg = _norm(max(0.0, (tank.balanceKg or 0.0) - amount))
+        tank.updatedAt = now_ms()
+        tank.save()
+
+    _broadcast("central-tank")
+    return _central_state(tank)
 
 
 def delete_shipment(shipment_id: str) -> bool:

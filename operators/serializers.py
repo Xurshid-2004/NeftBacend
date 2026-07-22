@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from .models import OperatorOverlimit, OperatorShipment, OperatorStationBalance
+from .models import (
+    OperatorCentralPurchase,
+    OperatorCentralTank,
+    OperatorOverlimit,
+    OperatorShipment,
+    OperatorStationBalance,
+)
 
 
 class OperatorStationBalanceSerializer(serializers.ModelSerializer):
@@ -30,3 +36,21 @@ class OperatorShipmentSerializer(serializers.ModelSerializer):
             "acceptedAt",
             "acceptedKg",
         ]
+
+
+class OperatorCentralPurchaseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OperatorCentralPurchase
+        fields = ["id", "amountKg", "source", "createdAt"]
+
+
+class OperatorCentralTankSerializer(serializers.ModelSerializer):
+    purchases = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OperatorCentralTank
+        fields = ["balanceKg", "totalPurchasedKg", "updatedAt", "purchases"]
+
+    def get_purchases(self, _obj):
+        qs = OperatorCentralPurchase.objects.all()[:100]
+        return OperatorCentralPurchaseSerializer(qs, many=True).data

@@ -141,6 +141,24 @@ DATABASES = {
     )
 }
 
+# SQLite (lokal dev) konkurensiya sozlamalari — "database is locked" (500) oldini oladi.
+# Bir nechta foydalanuvchi bir vaqtda ishlaganda (polling + yozuv/o'chirish) SQLite
+# butun faylni qulflaydi; standart "delete" journal rejimida o'qish va yozuv bir-birini
+# bloklaydi va qulf navbatida timeout bo'lsa 500 chiqadi. Yechim:
+#   * WAL           — o'qish yozuvni bloklamaydi (bir yozuvchi + ko'p o'quvchi parallel)
+#   * IMMEDIATE     — har bir tranzaksiya yozuv qulfini boshida oladi (qulf "upgrade"
+#                     deadlock'i o'rniga navbatda kutadi, busy_timeout hurmat qilinadi)
+#   * timeout=20    — qulf band bo'lsa 20 soniyagacha kutadi (5s emas)
+# PostgreSQL'ga (DATABASE_URL) o'tilганda bu blok umuman ishlamaydi — production'ga ta'sirsiz.
+if str(DATABASES["default"].get("ENGINE", "")).endswith("sqlite3"):
+    _sqlite_opts = DATABASES["default"].setdefault("OPTIONS", {})
+    _sqlite_opts.setdefault("timeout", 20)
+    _sqlite_opts.setdefault("transaction_mode", "IMMEDIATE")
+    _sqlite_opts.setdefault(
+        "init_command",
+        "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;",
+    )
+
 
 # ── Parol validatsiyasi (Django admin foydalanuvchilari uchun) ──────────────
 AUTH_PASSWORD_VALIDATORS = [
