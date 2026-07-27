@@ -1,0 +1,126 @@
+station,staff,time,type,seriya,raqami,poyezd,indeks,vazni,qoldiq,berilgan
+toshkent,Malikov Otabek,,stroit,,,spms,Xusan,,0,4000
+toshkent,Malikov Otabek,,stroit,,,tmk,Xusan,,0,6800
+toshkent,Malikov Otabek,,stroit,,,ep1,Xusan,,0,1000
+toshkent,Malikov Otabek,,predpr,,,opms203,4kun,,0,1000
+toshkent,Malikov Otabek,,predpr,,,pdm Buxoro,,,0,500
+toshkent,Malikov Otabek,,predpr,,,rju Toshkent,4kun,,0,1000
+toshkent,Malikov Otabek,,predpr,,,rsp14,4kun,,0,1000
+toshkent,Malikov Otabek,,predpr,,,ts graj,,,0,100
+toshkent,Malikov Otabek,9:00,manevr,TEM2,6716,Toshkent,graf,,334,1190
+toshkent,Malikov Otabek,9:15,manevr,TEM2,6082,Sergelik,graf,,225,1750
+toshkent,Malikov Otabek,9:30,manevr,TEM2,6560,Sergelik,graf,,455,1500
+toshkent,Malikov Otabek,9:45,manevr,TEM2,6793,Sergelik,graf,,435,1450
+toshkent,Malikov Otabek,10:00,manevr,TEM2,3200,Sergelik,graf,,174,1450
+angren,Mayusupov A,9:20,manevr,TEM2,817,Angren,graf,,267,400
+angren,Mayusupov A,12:30,predpr,,,pch3,2 kun,,0,500
+angren,Mayusupov A,13:50,predpr,,,ts Tashkent,,,0,81
+angren,Mayusupov A,14:30,stroit,,,tikm,ter gi,,0,646
+angren,Mayusupov A,15:03,predpr,,,dkss,ter gi,,0,807
+angren,Mayusupov A,17:30,predpr,,,ugam-chatkal,,,0,807
+angren,Mayusupov A,22:10,manevr,TEM2,1111,ablik,graf,,300,1600
+hovos,Ergashev Sardor,,stroit,,,ep1,Xusan,,0,422
+hovos,Ergashev Sardor,9:30,predpr,,,rsp14,Xusan,,0,633
+hovos,Ergashev Sardor,10:20,arenda,TEM2,1795,vchd3,Xusan,,160,800
+hovos,Ergashev Sardor,11:40,stroit,,,spms,Xusan,,0,3376
+hovos,Ergashev Sardor,14:00,stroit,,,tmk,Xusan,,0,5486
+hovos,Ergashev Sardor,18:00,manevr,TEM2,3318,Xovast,graf,,550,1820
+jizzax,Igralieva N,10:00,predpr,,,pch5,ter gi,,0,1000
+jizzax,Igralieva N,17:00,stroit,,,spms,Xusan,,0,5112
+qoqon,Majidov,,predpr,,,vp,4 kun,,0,1000
+qoqon,Majidov,,predpr,,,vchd4,2 kun,,0,350
+qoqon,Majidov,,predpr,,,pch6,4 kun,,0,1000
+qoqon,Majidov,,predpr,,,rju,4 kun,,0,1000
+qoqon,Majidov,,predpr,,,ts4,4 kun,,0,226
+qoqon,Majidov,,predpr,,,tch2,4 kun,,0,1000
+qoqon,Majidov,,predpr,,,shch4,4 kun,,0,1000
+qoqon,Majidov,,predpr,,,ech3,4 kun,,0,1000
+qoqon,Goziev Abdukayim,12:20,arenda,2TE10M,0116,pms64,,,750,838
+marglon,Maxmudov,21:50,arenda,ChME-3,5139,vchd4,,,536,70
+marglon,Maxmudov,0:45,manevr,ChME-3,6540,kuvasay,375 rju,,370,840
+marglon,Botirov M,11:15,manevr,ChME-3,5215,oltiarik,375 rju,,538,800
+marglon,Botirov M,16:20,gruz,2TE10M,1151,4302,kuvasoy2xkizilkiya,,1540,1790
+andijon,Najmiddinov M,,predpr,,,pch7,,,0,255
+andijon,Najmiddinov M,,predpr,,,tch2,,,0,200
+andijon,Najmiddinov M,,predpr,,,echk,,,0,200
+andijon,Mullajonov Z,6:20,manevr,ChME-3,5774,and-2,375 rju,,520,500
+andijon,Najmiddinov M,11:45,gruz,2TE10M,3286,3414,korasu4x,1600,796,4536
+andijon,Najmiddinov M,12:20,pass,ChME-3,5928,asaka,z-1,,480,1680
+samarqand,Sayfiddinov Komoliddin,,predpr,,,pch8,,,0,256
+samarqand,Sayfiddinov Komoliddin,,predpr,,,ts8,,,0,171
+samarqand,Sayfiddinov Komoliddin,,predpr,,,ech8,,,0,256
+samarqand,Sayfiddinov Komoliddin,12:35,manevr,ChME-3,5224,ulugbek,z-2,,461,1190
+ziyovuddin,Baratova,16:15,predpr,,,pch11,ter,,0,837
+ziyovuddin,Baratova,16:50,predpr,,,pdm buxoro,ter,,0,837
+ziyovuddin,Baratova,17:30,predpr,,,ao granit,ter,,0,1256
+buxoro,Bafaev Anvar,1:10,gruz,2TE10M,020,2002/3041,xodj/bux 2xc,4500,1863,1185
+buxoro,Bafaev Anvar,3:20,gruz,3TE10M,023,3202/3001,kar/bux,4500,1500,2317
+buxoro,Bafaev Anvar,4:10,manevr,ChME-3,4877,korli tog,,,650,1200
+buxoro,Bafaev Anvar,5:20,manevr,ChME-3,4285,k-bazar,374 rju,,555,1330
+buxoro,Kurbanova N,8:20,gruz,2TE10M,041,2002/3041,buxoro-xodj,4200,1303,1745
+buxoro,Kurbanova N,11:50,gruz,2TE10M,020,3102/3001,buxoro-karc,3700,2522,640
+buxoro,Kurbanova N,17:00,predpr,,,ds karaulbozor,,,0,83
+buxoro,Abdullaev Shukur,21:20,gruz,3TE10M,023,3102/3001,karshi-buxor,4500,1157,2621
+tinchlik,Xamdamova G,,predpr,,,shch6,,,0,300
+tinchlik,Xalilova R,0:20,gruz,3TE10M,024,3472,uchk/tinch,3500,1560,4538
+tinchlik,Xalilova R,1:00,manevr,TEM2,2159,tinchlik,374 rju,,384,440
+tinchlik,Xalilova R,3:25,manevr,ChME-3,4874,tinchlik,374 rju,,422,440
+tinchlik,Xamdamova G,9:00,predpr,,,pch9,,,0,300
+tinchlik,Xamdamova G,9:30,gruz,2TE10M,037,3602,uchkuduk-tinch,2500,1913,2951
+tinchlik,Xamdamova G,10:10,gruz,3TE10M,004,2002,uchkuduk-tinch,3500,1880,4339
+tinchlik,Xamdamova G,16:40,gruz,3TE10M,003,3472,uchkuduk-tinch,3500,2176,4044
+tinchlik,Boltaeva Baxtigul,21:50,gruz,3TE10M,017,3472,uchkuduk-tinch,3500,2378,8318
+uchquduq,Meliev Bobir,14:10,manevr,TEM2,2556,nurota,z-2,,784,700
+uchquduq,Meliev Bobir,17:00,gruz,2TE10M,2003,1461,musakillik,4000,4356,8394
+qarshi,Baxodirova Sh,,predpr,,,vchd kargo,,,0,234
+qarshi,Baxodirova Sh,,predpr,,,otsx,,,0,46
+qarshi,Baxodirova Sh,,predpr,,,pch12,,,0,250
+qarshi,Baxodirova Sh,,predpr,,,rsu,,,0,166
+qarshi,Baxodirova Sh,,predpr,,,tch8,,,0,250
+qarshi,Baxodirova Sh,,predpr,,,shch8,,,0,200
+qarshi,Baxodirova Sh,,predpr,,,ech9,,,0,333
+qarshi,Eshankulov d,1:00,gruz,3TE10M,034,3474,kengs/bux,3500,2756,2617
+qarshi,Baxodirova Sh,6:30,manevr,TEM2,964,nishon,z-1,,271,280
+qarshi,Baxodirova Sh,6:50,manevr,TEM2,3151,kengsoy,z-1,,292,980
+qarshi,Baxodirova Sh,15:35,manevr,TEM2,5774,Karshi,z-1,,208,1260
+qarshi,Eshankulov d,19:05,gruz,3TE10M,034,3001,buxoro2x,4500,1083,4951
+qarshi,Baxodirova Sh,19:35,manevr,TEM2,3005,tch8,z-372,,0,417
+termez,Kurbanov O,,predpr,,,pch13,,,0,300
+termez,Kurbanov O,,predpr,,,rju Termez,,,0,200
+termez,Kurbanov O,,predpr,,,tch9,,,0,300
+termez,Kurbanov O,,predpr,,,ech7,,,0,200
+termez,Raxmiddinov Nurbek,3:20,gruz,2TE10M,1193,3101,rzd-161 2xod,1500,1344,1301
+termez,Kurbanov O,8:05,gruz,2TE10M,2716,4402,galaba-amuzang,,1429,1157
+termez,Kurbanov O,9:25,manevr,TEM2,3088,Termez,graf,,405,1680
+termez,Kurbanov O,15:00,manevr,TEM2,3176,tch9,z-1,,342,700
+termez,Abdullaev Shukur,20:20,manevr,TEM2,6490,sherbod,graf,,330,1820
+darband,Axmedov Yu,14:30,predpr,,,pch15,,,0,298
+qongirot,Erembetova U,,predpr,,,ts kungrad,,,0,42
+qongirot,Erembetova U,,predpr,,,ech10,,,0,420
+qongirot,Bekmuradov R,1:30,gruz,2TE10M,005,341/3472,bars/ber/nuk,5000,2049,3939
+qongirot,Bekmuradov R,3:40,gruz,2TE10M,2005,3001/2702,kar-ya/misk,7500,6225,6723
+qongirot,Erembetova U,8:20,pass,2TE10M,039,128/3471,misken-nukus-misken,,3126,2014
+qongirot,Erembetova U,13:50,manevr,TEM2,7077,kunxodja,z-2,,1510,1140
+qongirot,Erembetova U,14:40,gruz,2TE10M,025,3102/3473,beruniy-nuk,5000,3625,1156
+qongirot,Erembetova U,15:50,manevr,TEM2,6731,barsa,,,818,2400
+urganch,Sapaev R,2:55,gruz,3TE10M,015,3421,jumurtau 2,1800,3072,2490
+urganch,Tadjimov,9:00,manevr,ChME-3,6541,urgench,z-1,,527,1610
+urganch,Tadjimov,16:00,prigor,TEP-70,152,6353,nukus-urgench,,662,1159
+urganch,Tadjimov,16:30,predpr,,,shch10,,,0,248
+urganch,Tadjimov,16:40,predpr,,,pch18,ter gi,,0,1242
+urganch,Tadjimov,17:00,predpr,,,pdm Buxors,ter gi,,0,1656
+miskin,Xadjiev Axmad,,stroit,,,tmk,Xusan,,0,4140
+miskin,Xadjiev Axmad,,stroit,,,ep1,Xusan,,0,2070
+miskin,Xadjiev Axmad,,predpr,,,pms279,Xusan,,0,828
+miskin,Xadjiev Axmad,,predpr,,,ts Misken,,,0,41
+miskin,Xadjiev Axmad,,predpr,,,shch10,,,0,248
+miskin,Xadjiev Axmad,,predpr,,,ech9,Xusan,,0,662
+miskin,Gaipov R,2:40,pass,2TE10M,026,53/3102,kungr/misk,,1346,3375
+miskin,Gaipov R,3:40,gruz,2TE10M,2006,3471/3104,kungr/misk,4000,4223,4297
+miskin,Xadjiev Axmad,9:00,gruz,2TE10M,2007,3473,kungrad-mis,4000,5465,3770
+miskin,Ametov,22:50,gruz,2TE10M,039,3471,nukus-beruni,2500,4513,439
+qumqurgon,Djuraev Nuriddin,8:10,gruz,2TE10M,007,2061,termez-gala,3200,1014,810
+qumqurgon,Djuraev Nuriddin,9:00,pass,2TE10M,0707,82/81/301,saryasia6x,,1367,1619
+qumqurgon,Djuraev Nuriddin,11:10,gruz,2TE10M,009,3010,kuduklik2x,3200,933,1889
+qumqurgon,Djuraev Nuriddin,14:30,manevr,TEM2,2170,kumkurgon,graf,,331,1400
+qumqurgon,Djuraev Nuriddin,17:20,gruz,2TE10M,1152,3472,kuduklik2x,3200,735,2251

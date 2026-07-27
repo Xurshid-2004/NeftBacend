@@ -47,6 +47,14 @@ ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,0.0.0.0")
 # Proxy/HTTPS orqasida (Nginx, Render, Railway ...)
 CSRF_TRUSTED_ORIGINS = env_list("DJANGO_CSRF_TRUSTED_ORIGINS", "")
 
+# Admin panel manzili — production'da DJANGO_ADMIN_URL bilan MAXFIY yo'lga
+# o'zgartiring (masalan "boshqaruv-7x9k/"). Avtomatik botlar "/admin/" ni topa
+# olmaydi. Maxfiy manzil faqat env'da bo'ladi (git'ga tushmaydi). Lokal dev'da
+# standart "admin/" qoladi — hech narsa buzilmaydi.
+ADMIN_URL = env("DJANGO_ADMIN_URL", "admin/").strip().lstrip("/")
+if not ADMIN_URL.endswith("/"):
+    ADMIN_URL += "/"
+
 
 # ── Ilovalar ────────────────────────────────────────────────────────────────
 DJANGO_APPS = [
@@ -253,6 +261,18 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+
+
+# ── Doimiy xavfsizlik sarlavhalari (dev + prod) ─────────────────────────────
+# Faqat HTTP javob sarlavhalari va admin sessiya cookie bayroqlari. API JSON
+# javoblariga, ilova mantig'iga yoki JWT auth'ga (Authorization header orqali)
+# TA'SIR QILMAYDI — Django default qiymatlarni aniq yozadi va Referrer-Policy
+# sarlavhasini qo'shadi (XSS/clickjacking/referrer-leak himoyasi).
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SAMESITE = "Lax"
 
 
 # ── Loglar ──────────────────────────────────────────────────────────────────

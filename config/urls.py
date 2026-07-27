@@ -13,6 +13,7 @@ Barcha REST endpointlar `/api/` ostida:
   /api/audit-logs/        — audit izi
 """
 
+from django.conf import settings
 from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
@@ -24,7 +25,7 @@ def health(_request):
 
 urlpatterns = [
     path("", health, name="root"),  # App Platform health check uchun
-    path("admin/", admin.site.urls),
+    path(settings.ADMIN_URL, admin.site.urls),  # maxfiy manzil: DJANGO_ADMIN_URL
     path("api/health/", health, name="health"),
     path("api/", include("accounts.urls")),
     path("api/", include("catalog.urls")),
