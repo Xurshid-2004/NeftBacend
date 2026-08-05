@@ -81,6 +81,10 @@ def create_access_token(session: dict) -> dict:
             "stationId": session.get("stationId"),
             "displayName": session.get("displayName", ""),
             "expiresAt": int(exp.timestamp() * 1000),
+            # Admin uchun ruxsat etilgan bo'limlar; None = cheklov yo'q.
+            # Frontend menyuni shu bo'yicha filtrlaydi, backend esa har bir
+            # so'rovda bazadan qayta o'qiydi (tokenga ishonmaydi).
+            "allowedSections": session.get("allowedSections"),
         },
     }
 

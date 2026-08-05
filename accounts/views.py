@@ -13,8 +13,11 @@ Login tartibi (frontend `app/(auth)/login/page.tsx` bilan bir xil):
 
 from __future__ import annotations
 
+import secrets
 import uuid
 
+from django.conf import settings
+from django.contrib.auth.hashers import check_password
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
@@ -33,7 +36,14 @@ from .models import (
     SecurityEvent,
     Staff,
 )
-from .permissions import IsAdmin, IsAdminOrReadOnly
+from .permissions import (
+    IsAdmin,
+    IsAdminOrReadOnly,
+    IsUnrestrictedAdmin,
+    section_required,
+)
+from .sections import normalize_sections
+from .throttles import VaultThrottle
 from .serializers import (
     AccessCodeSerializer,
     ActiveSessionSerializer,
@@ -65,6 +75,8 @@ def _build_admin_session(code: str) -> dict | None:
         "stationId": None,
         "displayName": name,
         "codeType": ac.codeType,
+        # None = cheklov yo'q (hamma bo'lim) — eski kodlar uchun shu holat.
+        "allowedSections": normalize_sections(ac.allowedSections),
     }
 
 
@@ -214,6 +226,46 @@ class LogoutView(APIView):
         return Response({"ok": True})
 
 
+class VaultCheckView(APIView):
+    """POST /api/auth/vault-check  { password } -> { ok: True } | 403
+
+    "Admin qo'shish" bo'limining qo'shimcha paroli. Parol serverda qoladi —
+    frontendga na o'zi, na hash'i yuborilmaydi, shu sababli uni offline
+    brute-force qilib bo'lmaydi. Asosiy chegara baribir rol tekshiruvi
+    (`IsAdmin`, `AccessCodeViewSet` da ham) bo'lib qoladi; bu endpoint uning
+    ustiga qo'yilgan ikkinchi qatlam.
+    """
+
+    permission_classes = [IsAdmin]
+    throttle_classes = [VaultThrottle]
+
+    def post(self, request):
+        password = str(request.data.get("password", ""))
+
+        expected_hash = getattr(settings, "ADMIN_VAULT_PASSWORD_HASH", "")
+        if expected_hash:
+            ok = check_password(password, expected_hash)
+        else:
+            ok = secrets.compare_digest(password, settings.ADMIN_VAULT_PASSWORD)
+
+        if not ok:
+            # Xato urinish yozib boriladi. `SecurityEvent.type` da yangi qiymat
+            # qo'shish migratsiya talab qilardi — shuning uchun mavjud
+            # "wrong_code" ishlatiladi, tafsilot `meta` da ko'rsatiladi.
+            SecurityEvent.objects.create(
+                type="wrong_code",
+                code=getattr(request.user, "code", "") or "",
+                deviceId=str(request.data.get("deviceId", "")).strip(),
+                timestamp=now_ms(),
+                meta={"scope": "admin_vault"},
+            )
+            return Response(
+                {"detail": "Parol xato."}, status=status.HTTP_403_FORBIDDEN
+            )
+
+        return Response({"ok": True}, status=status.HTTP_200_OK)
+
+
 class MeView(APIView):
     """GET /api/auth/me — joriy sessiya ma'lumoti."""
 
@@ -236,7 +288,9 @@ class MeView(APIView):
 class AccessCodeViewSet(viewsets.ModelViewSet):
     queryset = AccessCode.objects.all()
     serializer_class = AccessCodeSerializer
-    permission_classes = [IsAdmin]
+    # "Бошқарув" bo'limi: bo'limi cheklangan admin bu yerga umuman kira olmaydi,
+    # aks holda u o'ziga istalgan huquqni yozib qo'ya olardi.
+    permission_classes = [IsAdmin, IsUnrestrictedAdmin]
     filterset_fields = ["role", "codeType", "isActive"]
     search_fields = ["code", "displayName"]
 
@@ -247,7 +301,9 @@ class AccessCodeViewSet(viewsets.ModelViewSet):
 class StaffViewSet(viewsets.ModelViewSet):
     queryset = Staff.objects.all()
     serializer_class = StaffSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    # O'qish ochiq (worker/operator oqimlari shunga tayanadi); xodim qo'shish /
+    # o'zgartirish faqat "Ходим қўшиш" bo'limi biriktirilgan adminga.
+    permission_classes = [IsAdminOrReadOnly, section_required("xodim")]
     filterset_fields = ["erju", "zapravka", "stationId", "role"]
     search_fields = ["tabelNumber", "fullName", "zapravka"]
 
@@ -255,7 +311,8 @@ class StaffViewSet(viewsets.ModelViewSet):
 class BlockedCodeViewSet(viewsets.ModelViewSet):
     queryset = BlockedCode.objects.all()
     serializer_class = BlockedCodeSerializer
-    permission_classes = [IsAdmin]
+    # Butunlay "Ходим қўшиш" bo'limiga tegishli — o'qish ham cheklanadi.
+    permission_classes = [IsAdmin, section_required("xodim", writes_only=False)]
     search_fields = ["code", "note"]
 
 

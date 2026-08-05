@@ -50,6 +50,12 @@ class Submission(models.Model):
     oshiqMiqdor = models.FloatField(null=True, blank=True)
 
     # ── Lokomotiv ──
+    # ТЧ (lokomotiv deposi) — ishchi formasidagi "Депони танланг" tanlovi.
+    # Qiymat `lib/data/depolar.ts` dagi `name` ("ТЧ-Қўқон"), ekrandagi `label`
+    # emas — eski yozuvlar bilan bir xil yozilish qoidasi saqlanadi.
+    # Eski yozuvlarda NULL bo'ladi: bu maydon endi qo'shildi, shuning uchun
+    # depo hisobotlari faqat to'ldirilgan yozuvlarni oladi.
+    depo = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     harakatTuri = models.CharField(max_length=16, null=True, blank=True, db_index=True)
     rusumi = models.CharField(max_length=32, null=True, blank=True)
     lokomotivNumber = models.CharField(max_length=64, null=True, blank=True)
@@ -99,6 +105,11 @@ class Submission(models.Model):
             models.Index(fields=["dateISO", "stationId", "category"]),
             models.Index(fields=["year", "stationId", "category"]),
             models.Index(fields=["category", "-timestamp"]),
+            # Worker paneli: bitta stansiyaning BUGUNGI yozuvlari
+            # (stationId + timestamp oralig'i + "-timestamp" tartibi), kategoriya
+            # ko'rsatilmagan holat. Yuqoridagi (stationId, category, -timestamp)
+            # indeksi kategoriyasiz so'rovda timestamp qismiga yeta olmaydi.
+            models.Index(fields=["stationId", "-timestamp"]),
         ]
 
     def __str__(self):
@@ -145,6 +156,11 @@ class FuelRecord(models.Model):
         indexes = [
             models.Index(fields=["dateISO", "locCode"]),
             models.Index(fields=["year", "locCode"]),
+            # `dateFrom`/`dateTo` filtri `date` (dateISO emas) bo'yicha ishlaydi
+            # — Y.PDF va hisobotlar shu yo'ldan keladi. Indekssiz bu butun
+            # jadvalni ketma-ket skan qilardi.
+            models.Index(fields=["locCode", "date"]),
+            models.Index(fields=["date"]),
         ]
 
     def __str__(self):

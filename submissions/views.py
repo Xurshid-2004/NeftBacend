@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from django.conf import settings
 from rest_framework import status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
@@ -33,6 +34,23 @@ def _is_admin(user) -> bool:
     return bool(getattr(user, "is_admin", False))
 
 
+def _is_backdated(sub: Submission) -> bool:
+    """
+    Yozuv joriy kundan boshqa kunga tushganmi (ya'ni sana override ishlatilgan).
+
+    Operator balansini himoya qilish uchun kerak: balans "hozirgi qoldiq" ni
+    bildiradi va `delete_submission` uni QAYTARMAYDI. Shu sababli o'tgan kunga
+    kiritilgan yozuv balansdan ayirilsa, o'sha yozuvni o'chirib ham qoldiqni
+    tiklab bo'lmasdi. Joriy kunga yoziladigan oddiy yozuvlar uchun bu funksiya
+    `False` qaytaradi — ular avvalgidek balansdan ayiriladi.
+    """
+    from common.timeutil import now_local, to_local_date_iso
+
+    if not sub.dateISO:
+        return False
+    return sub.dateISO != to_local_date_iso(now_local())
+
+
 def _can_edit(sub: Submission) -> bool:
     """submissions-service.ts -> canEdit: faqat shu kun (mahalliy)."""
     from django.utils import timezone
@@ -51,7 +69,7 @@ def _can_edit(sub: Submission) -> bool:
 
 class SubmissionViewSet(viewsets.ModelViewSet):
     serializer_class = SubmissionSerializer
-    filterset_fields = ["stationId", "category", "dateISO", "year", "harakatTuri", "isOverLimit"]
+    filterset_fields = ["stationId", "category", "dateISO", "year", "harakatTuri", "isOverLimit", "depo"]
     ordering_fields = ["timestamp", "createdAt"]
     ordering = ["-timestamp"]
 
@@ -86,16 +104,34 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         if not data.get("stationId"):
             raise ValidationError({"stationId": "majburiy"})
 
-        # Hisobot sanasi override (faqat admin)
-        override = None
-        if _is_admin(user):
-            override = data.pop("reportDateOverride", None)
-        else:
-            data.pop("reportDateOverride", None)
+        # ТЯГА — «Локомотив рақами» faqat ruxsat etilgan ro'yxatdan bo'lishi
+        # kerak. Tekshiruv frontendda ham bor, lekin asosiysi shu yerda:
+        # so'rovni to'g'ridan-to'g'ri API ga yuborib chetlab o'tib bo'lmaydi.
+        # Ro'yxat bo'sh bo'lsa `is_raqam_allowed` doim True qaytaradi, ya'ni
+        # sozlama yo'q bo'lsa yozuvlar avvalgidek saqlanaveradi.
+        if category == "lokomotiv":
+            from catalog.lokomotiv_raqamlar import is_raqam_allowed
+
+            if not is_raqam_allowed(data.get("lokomotivNumber")):
+                raise ValidationError(
+                    {"lokomotivNumber": "Бундай локомотив рақами рўйхатда йўқ"}
+                )
+
+        # Hisobot sanasi override — admin doim, worker esa VAQTINCHALIK
+        # `ALLOW_WORKER_REPORT_DATE_OVERRIDE` yoqilganda (navbardagi sana
+        # tanlagichi). Bayroq o'chirilsa avvalgi holat qaytadi: faqat admin.
+        override = data.pop("reportDateOverride", None)
+        if not (_is_admin(user) or settings.ALLOW_WORKER_REPORT_DATE_OVERRIDE):
+            override = None
 
         sub = create_submission(category, data, report_date_override=override)
 
-        if category == "lokomotiv":
+        # Operator balansi FAQAT joriy kunga yozilgan yozuvda kamayadi.
+        # O'tgan kunga kiritilgan yozuv (sana override) balansga umuman
+        # tegmaydi — sabab `_is_backdated` izohida. Bugungi kunga yoziladigan
+        # oddiy yozuvlar uchun bu shart har doim rost, ya'ni xatti-harakat
+        # avvalgidek qoladi.
+        if category == "lokomotiv" and not _is_backdated(sub):
             try:
                 subtract_operator_balance(sub.stationId, data.get("qanchaBerildi"))
             except Exception as exc:  # noqa: BLE001 — balans xatosi submissionni buzmasin

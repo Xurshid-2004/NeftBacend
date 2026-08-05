@@ -38,6 +38,11 @@ class AccessCode(models.Model):
         default="admin",
     )
     isActive = models.BooleanField(default=True)
+    # Admin kira oladigan bo'limlar ro'yxati, masalan ["statistika", "limit"].
+    # BO'SH yoki NULL = CHEKLOV YO'Q (hamma bo'lim ochiq) — shu sababli mavjud
+    # kodlar uchun hech narsa o'zgarmaydi. Ruxsat etilgan qiymatlar:
+    # accounts/sections.py :: ASSIGNABLE_SECTIONS.
+    allowedSections = models.JSONField(null=True, blank=True, default=None)
     createdAt = models.BigIntegerField(default=now_ms)
     updatedAt = models.BigIntegerField(default=now_ms)
 

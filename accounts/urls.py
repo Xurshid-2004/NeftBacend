@@ -16,6 +16,7 @@ auth_patterns = [
     path("logout/", views.LogoutView.as_view(), name="logout"),
     path("heartbeat/", views.HeartbeatView.as_view(), name="heartbeat"),
     path("me/", views.MeView.as_view(), name="me"),
+    path("vault-check/", views.VaultCheckView.as_view(), name="vault-check"),
 ]
 
 urlpatterns = [

@@ -214,7 +214,10 @@ REST_FRAMEWORK = {
         "rest_framework.renderers.JSONRenderer",
     ]
     + (["rest_framework.renderers.BrowsableAPIRenderer"] if DEBUG else []),
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.LimitOffsetPagination",
+    # LimitOffsetPagination + `limit` chegarasi (common/drf.py). Javob shakli
+    # o'zgarmaydi: {count, next, previous, results} — faqat juda katta `limit`
+    # so'ralganda u 5000 ga tushiriladi.
+    "DEFAULT_PAGINATION_CLASS": "common.pagination.CappedLimitOffsetPagination",
     "PAGE_SIZE": 100,
     "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%S.%fZ",
     "DEFAULT_THROTTLE_CLASSES": [
@@ -224,8 +227,24 @@ REST_FRAMEWORK = {
         # Login brute-force himoyasi (kirish kodi tizimi uchun muhim)
         "login": env("THROTTLE_LOGIN", "20/min"),
         "anon": env("THROTTLE_ANON", "60/min"),
+        # "Admin qo'shish" vault paroli — kod bo'yicha cheklanadi
+        "vault": env("THROTTLE_VAULT", "5/min"),
     },
 }
+
+
+# ── "Admin qo'shish" bo'limi paroli ─────────────────────────────────────────
+# Bu parol FAQAT shu yerda (serverda) turadi — frontend bundle'iga na o'zi,
+# na hash'i tushadi, shu sababli uni offline brute-force qilib bo'lmaydi.
+# Tekshiruv: POST /api/auth/vault-check/ (accounts.views.VaultCheckView).
+#
+# Production'da .env orqali qo'ying. Ikki usul bor:
+#   ADMIN_VAULT_PASSWORD=...        — oddiy matn
+#   ADMIN_VAULT_PASSWORD_HASH=...   — Django PBKDF2 hash (ustunroq, agar berilsa
+#                                     oddiy matn e'tiborga olinmaydi). Hash olish:
+#     python manage.py shell -c "from django.contrib.auth.hashers import make_password; print(make_password('yangi-parol'))"
+ADMIN_VAULT_PASSWORD = env("ADMIN_VAULT_PASSWORD", "20048200")
+ADMIN_VAULT_PASSWORD_HASH = env("ADMIN_VAULT_PASSWORD_HASH", "")
 
 
 # ── Kod-asosli JWT (Firestore "sessiya" o'rniga) ────────────────────────────
@@ -236,6 +255,16 @@ AUTH_JWT = {
     "ISSUER": env("JWT_ISSUER", "uz-temiryol"),
     "SIGNING_KEY": env("JWT_SIGNING_KEY", SECRET_KEY),
 }
+
+
+# ── VAQTINCHALIK: ishchi panelidagi sana tanlagich ──────────────────────────
+# Navbardagi "Hisobot sanasi" tanlagichi ishchiga ham o'tgan kunga yozuv
+# kiritishga ruxsat beradi (depo oylik hisobotini sinash uchun).
+#
+# O'CHIRISH: `.env` ga `ALLOW_WORKER_REPORT_DATE_OVERRIDE=0` yozish kifoya —
+# shundan keyin sana override yana FAQAT admin uchun ishlaydi (avvalgi holat),
+# boshqa hech narsa o'zgarmaydi.
+ALLOW_WORKER_REPORT_DATE_OVERRIDE = env_bool("ALLOW_WORKER_REPORT_DATE_OVERRIDE", True)
 
 
 # ── CORS (Next.js frontend) ─────────────────────────────────────────────────

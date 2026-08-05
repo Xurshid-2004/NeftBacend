@@ -10,13 +10,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdmin
+from accounts.permissions import IsAdmin, section_required
 
 from .services import generate_report
 
 
 class GenerateReportView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    # Hisobot ikkala bo'limdan ham chaqiriladi (Статистика va Ҳисоботлар),
+    # shuning uchun ulardan bittasi yetarli.
+    permission_classes = [
+        IsAuthenticated,
+        IsAdmin,
+        section_required("hisobotlar", "statistika", writes_only=False),
+    ]
 
     def post(self, request):
         filter_ = request.data or {}

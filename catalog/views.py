@@ -1,6 +1,6 @@
 from rest_framework import viewsets
 
-from accounts.permissions import IsAdminOrReadOnly
+from accounts.permissions import IsAdminOrReadOnly, section_required
 
 from .models import (
     Approval,
@@ -80,7 +80,9 @@ class VariantViewSet(viewsets.ModelViewSet):
 class LimitViewSet(viewsets.ModelViewSet):
     queryset = Limit.objects.all()
     serializer_class = LimitSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    # O'qish ochiq (worker formalari limitni o'qiydi); limit yozish/o'zgartirish
+    # faqat "Лимит бериш" bo'limi biriktirilgan adminga.
+    permission_classes = [IsAdminOrReadOnly, section_required("limit")]
     filterset_fields = ["type", "stationId", "isActive"]
 
     def perform_update(self, serializer):
@@ -99,4 +101,4 @@ class ClosedDayViewSet(viewsets.ModelViewSet):
 class ApprovalViewSet(viewsets.ModelViewSet):
     queryset = Approval.objects.all()
     serializer_class = ApprovalSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly, section_required("limit")]

@@ -12,7 +12,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.permissions import IsAdmin, IsAuthenticated
+from accounts.permissions import IsAdmin, IsAuthenticated, section_required
 
 from . import services
 from .models import OperatorStationBalance
@@ -32,6 +32,9 @@ class BalanceListView(APIView):
 class SubtractView(APIView):
     """Ishchi saqlaganda chaqiriladi — worker faqat o'z stansiyasidan ayiradi."""
 
+    # ATAYLAB bo'lim bilan cheklanmagan: bu operator panelining amali emas,
+    # yozuv saqlash oqimining bir qismi (admin yozuvni tahrirlaganda ham
+    # chaqiriladi). Cheklansa oddiy tahrirlash buzilardi.
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -70,7 +73,7 @@ def _require_operator_or_admin(request):
 class SetView(APIView):
     """Admin yoki operator: balansni o'rnatadi (operator faqat o'z stansiyasi)."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, section_required("operator")]
 
     def post(self, request):
         station_id = _station_for(request)
@@ -81,7 +84,7 @@ class SetView(APIView):
 class ChangeView(APIView):
     """Admin yoki operator: balansni delta bilan o'zgartiradi (operator faqat o'z stansiyasi)."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, section_required("operator")]
 
     def post(self, request):
         station_id = _station_for(request)
@@ -95,7 +98,7 @@ class ShipmentListCreateView(APIView):
     POST /api/operator/shipments/  -> yangi (pending) jo'natma yaratadi
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, section_required("operator")]
 
     def get(self, request):
         qs = services.list_shipments()
@@ -122,7 +125,7 @@ class ShipmentAcceptView(APIView):
     hisoblamasdan, to'g'ridan-to'g'ri ko'rsatishi uchun.
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, section_required("operator")]
 
     def post(self, request, shipment_id):
         result = services.accept_shipment(shipment_id, request.data.get("acceptedKg"))
@@ -139,7 +142,7 @@ class ShipmentAcceptView(APIView):
 class ShipmentDeleteView(APIView):
     """DELETE /api/operator/shipments/<id>/ -> faqat admin: jo'natma/farq yozuvini o'chiradi."""
 
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, section_required("operator")]
 
     def delete(self, request, shipment_id):
         if not services.delete_shipment(shipment_id):
@@ -153,7 +156,7 @@ class ResetAllView(APIView):
     BARCHA stansiya balanslari va jo'natmalarni butunlay tozalaydi (qaytarib bo'lmaydi).
     """
 
-    permission_classes = [IsAdmin]
+    permission_classes = [IsAdmin, section_required("operator")]
 
     def post(self, request):
         services.reset_all()
@@ -177,7 +180,7 @@ class CentralTankView(APIView):
 class CentralTankPurchaseView(APIView):
     """Yoqilg'i sotib olindi — markaziy tank balansiga qo'shiladi (faqat admin/operator)."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, section_required("operator")]
 
     def post(self, request):
         _require_operator_or_admin(request)
@@ -194,7 +197,7 @@ class CentralTankPurchaseView(APIView):
 class CentralTankSubtractView(APIView):
     """Realizatsiyadan tarqatilganda markaziy tankdan ayiradi (faqat admin/operator)."""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, section_required("operator")]
 
     def post(self, request):
         _require_operator_or_admin(request)
@@ -211,7 +214,7 @@ class CentralTankDistributeView(APIView):
     Tankda yetarli yoqilg'i bo'lmasa 409 bilan RAD etadi (hech narsa o'zgarmaydi).
     """
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, section_required("operator")]
 
     def post(self, request):
         _require_operator_or_admin(request)
