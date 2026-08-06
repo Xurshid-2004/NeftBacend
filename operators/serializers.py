@@ -5,6 +5,7 @@ from .models import (
     OperatorCentralTank,
     OperatorOverlimit,
     OperatorShipment,
+    OperatorShipmentRequest,
     OperatorStationBalance,
 )
 
@@ -35,6 +36,30 @@ class OperatorShipmentSerializer(serializers.ModelSerializer):
             "status",
             "acceptedAt",
             "acceptedKg",
+        ]
+
+
+class OperatorShipmentRequestSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OperatorShipmentRequest
+        fields = [
+            "id",
+            "fromStationId",
+            "fromStationName",
+            "toStationId",
+            "toStationName",
+            "amountKg",
+            "masulShaxs",
+            "requestedByCode",
+            "requestedByName",
+            "createdAt",
+            "status",
+            "allowedKg",
+            "decidedAt",
+            "decidedByCode",
+            "decidedByName",
+            "rejectReason",
+            "shipmentId",
         ]
 
 

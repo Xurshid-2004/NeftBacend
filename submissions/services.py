@@ -368,10 +368,19 @@ def create_submission(category: str, data: dict, report_date_override: str | Non
     if extra:
         known["extra"] = extra
 
-    sub = Submission.objects.create(**known)
-
     delta_data = {**data, "category": category, **std}
-    _apply_summary_delta(delta_data, 1, 1)
+
+    # ATOMIK: yozuvning o'zi va uning kunlik/yillik summary hissasi BIRGA
+    # yoziladi. Aks holda (qulf timeout'i, uzilish) yozuv saqlanib, summary
+    # oshmay qolishi mumkin edi — hisobot esa doimiy kam ko'rsatardi va buni
+    # keyin sezish deyarli imkonsiz. `delete_submission` allaqachon shu
+    # tartibda ishlaydi, bu yer esa qolib ketgan edi.
+    with transaction.atomic():
+        sub = Submission.objects.create(**known)
+        _apply_summary_delta(delta_data, 1, 1)
+
+    # fuelRecord (ERJU PDF eksporti uchun) ATAYLAB tranzaksiyadan tashqarida:
+    # u hosila yozuv, xatosi butun submissionni bekor qilmasligi kerak.
     _write_fuel_record(delta_data, now)
     _broadcast(sub, "create")
     return sub
@@ -426,10 +435,14 @@ def update_submission(sub: Submission, changes: dict) -> Submission:
         merged = dict(sub.extra or {})
         merged.update(extra)
         sub.extra = merged
-    sub.save()
 
-    after = _submission_to_dict(sub)
-    _record_updated_for_summaries(before, after)
+    # ATOMIK: tahrir va uning summary farqi birga yoziladi — `create_submission`
+    # dagi kabi. Aks holda miqdor o'zgarib, summary eski qiymatda qolishi mumkin.
+    with transaction.atomic():
+        sub.save()
+        after = _submission_to_dict(sub)
+        _record_updated_for_summaries(before, after)
+
     _broadcast(sub, "update")
     return sub
 

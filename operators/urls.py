@@ -12,6 +12,11 @@ from .views import (
     ShipmentAcceptView,
     ShipmentDeleteView,
     ShipmentListCreateView,
+    ShipmentRequestAllowView,
+    ShipmentRequestApproveView,
+    ShipmentRequestListCreateView,
+    ShipmentRequestRejectView,
+    ShipmentRequestSendView,
     SubtractView,
 )
 
@@ -36,6 +41,33 @@ urlpatterns = [
         "operator/central-tank/distribute/",
         CentralTankDistributeView.as_view(),
         name="operator-central-tank-distribute",
+    ),
+    # Yuborishga ruxsat so'rovlari — "shipments/<id>/" naqshidan OLDIN turishi
+    # shart emas (yo'l boshqacha), lekin tartib uchun shu yerda.
+    path(
+        "operator/shipment-requests/",
+        ShipmentRequestListCreateView.as_view(),
+        name="operator-shipment-requests",
+    ),
+    path(
+        "operator/shipment-requests/<str:request_id>/approve/",
+        ShipmentRequestApproveView.as_view(),
+        name="operator-shipment-request-approve",
+    ),
+    path(
+        "operator/shipment-requests/<str:request_id>/allow/",
+        ShipmentRequestAllowView.as_view(),
+        name="operator-shipment-request-allow",
+    ),
+    path(
+        "operator/shipment-requests/<str:request_id>/send/",
+        ShipmentRequestSendView.as_view(),
+        name="operator-shipment-request-send",
+    ),
+    path(
+        "operator/shipment-requests/<str:request_id>/reject/",
+        ShipmentRequestRejectView.as_view(),
+        name="operator-shipment-request-reject",
     ),
     path("operator/shipments/", ShipmentListCreateView.as_view(), name="operator-shipments"),
     path(

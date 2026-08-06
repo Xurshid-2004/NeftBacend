@@ -16,8 +16,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsAuthenticated
+from common.numbers import parse_pdf_number
 from common.timeutil import now_ms
+from operators.services import change_balance as change_operator_balance
 from operators.services import subtract as subtract_operator_balance
+from operators.services import write_audit as write_operator_audit
 
 from .models import DailySummary, FuelRecord, KorxonaWorkerCode, Submission, YearlySummary
 from .serializers import (
@@ -32,6 +35,97 @@ from .services import create_submission, delete_submission, update_submission
 
 def _is_admin(user) -> bool:
     return bool(getattr(user, "is_admin", False))
+
+
+# Har bir kategoriyada "berilgan yoqilg'i" qaysi maydonda kelishi — operator
+# balansidan shu miqdor ayiriladi.
+#
+# Ilgari faqat `lokomotiv` shu yerda (serverda) ayirilardi; korxona/qurulish/
+# tamirlash esa brauzerdan alohida `POST /operator/subtract/` so'rovi bilan
+# ayirilardi. U so'rov "fire-and-forget" edi: tarmoq uzilsa yoki bet yopilsa
+# yozuv saqlanib, yoqilg'i esa hech qachon ayirilmay qolardi (balans faqat
+# brauzerda kamayib, keyingi poll uni tiklardi). Endi TO'RTALA kategoriya ham
+# yozuv bilan bir joyda, serverda ayiriladi — brauzerga bog'liq emas.
+_FUEL_FIELD_BY_CATEGORY = {
+    "lokomotiv": "qanchaBerildi",
+    "korxona": "qancha",
+    "qurulish": "qanchaBerildi",
+    "tamirlash": "qanchaBerildi",
+}
+
+
+def _fuel_amount_of(sub: Submission) -> float:
+    """Yozuvda berilgan yoqilg'i (kg) — kategoriyasiga mos maydondan."""
+    field = _FUEL_FIELD_BY_CATEGORY.get(sub.category)
+    if not field:
+        return 0.0
+    return parse_pdf_number(getattr(sub, field, None))
+
+
+def _sync_balance_after_edit(
+    old_station: str, old_amount: float, old_counted: bool, sub: Submission, actor: dict
+) -> None:
+    """Yozuv tahrirlangach operator balansini to'g'rilaydi.
+
+    Ilgari tahrirlash balansga UMUMAN ta'sir qilmasdi: miqdor 100 dan 150 ga
+    o'zgartirilsa ham balansdan avvalgidek 100 ayirilgan holicha qolardi va
+    kunlar o'tgani sari hisobot bilan tank qoldig'i bir-biridan uzoqlashardi.
+
+    Qoida yozuv YARATILGANDAGI qoida bilan AYNAN bir xil: balansga faqat joriy
+    kunga tegishli yozuv ta'sir qiladi (`_is_backdated`). Shundan:
+      * oldin ham, keyin ham bugungi bo'lsa  -> faqat FARQ qo'llanadi,
+      * bugungidan o'tgan kunga ko'chirilsa  -> eski miqdor balansga QAYTADI,
+      * o'tgan kundan bugunga ko'chirilsa    -> yangi miqdor balansdan ayiriladi,
+      * ikkalasi ham o'tgan kun bo'lsa       -> balansga umuman tegilmaydi.
+
+    Stansiya yoki kategoriya o'zgarsa (buni faqat admin qila oladi) ham to'g'ri
+    ishlaydi: hisob eski stansiyaga qaytariladi, yangisidan ayiriladi. Bitta
+    stansiya uchun kirim va chiqim AVVAL yig'iladi, keyin bitta amalda
+    qo'llanadi — oraliqda balans 0 ga urilib qolmasligi uchun.
+    """
+    new_station = sub.stationId
+    new_amount = _fuel_amount_of(sub)
+    new_counted = not _is_backdated(sub)
+
+    deltas: dict[str, float] = {}
+    if old_counted and old_station:
+        deltas[old_station] = deltas.get(old_station, 0.0) + old_amount
+    if new_counted and new_station:
+        deltas[new_station] = deltas.get(new_station, 0.0) - new_amount
+
+    for station_id, delta in deltas.items():
+        if abs(delta) < 1e-9:
+            continue
+        try:
+            state = change_operator_balance(station_id, delta)
+        except Exception as exc:  # noqa: BLE001 — balans xatosi tahrirni buzmasin
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "tahrirdan keyin operator balansi to'g'rilanmadi "
+                "(stansiya=%s, delta=%s, yozuv=%s): %s",
+                station_id,
+                delta,
+                sub.pk,
+                exc,
+            )
+            continue
+
+        write_operator_audit(
+            actor,
+            "update",
+            "operator_balance",
+            station_id,
+            {
+                "amal": "yozuv tahrirlandi",
+                "yozuvId": str(sub.pk),
+                "kategoriya": sub.category,
+                "eskiMiqdorKg": old_amount if old_counted else None,
+                "yangiMiqdorKg": new_amount if new_counted else None,
+                "balansgaQoshildiKg": delta,
+                "yangiBalansKg": (state or {}).get("balanceKg"),
+            },
+        )
 
 
 def _is_backdated(sub: Submission) -> bool:
@@ -131,9 +225,10 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         # tegmaydi — sabab `_is_backdated` izohida. Bugungi kunga yoziladigan
         # oddiy yozuvlar uchun bu shart har doim rost, ya'ni xatti-harakat
         # avvalgidek qoladi.
-        if category == "lokomotiv" and not _is_backdated(sub):
+        fuel_field = _FUEL_FIELD_BY_CATEGORY.get(category)
+        if fuel_field and not _is_backdated(sub):
             try:
-                subtract_operator_balance(sub.stationId, data.get("qanchaBerildi"))
+                subtract_operator_balance(sub.stationId, data.get(fuel_field))
             except Exception as exc:  # noqa: BLE001 — balans xatosi submissionni buzmasin
                 import logging
 
@@ -149,6 +244,12 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         if not _is_admin(user) and not _can_edit(sub):
             raise PermissionDenied("Tahrirlash muddati tugagan (faqat shu kun).")
 
+        # Balansni to'g'rilash uchun tahrirdan OLDINGI holat (yozuv o'zgargach
+        # bu qiymatlarni olib bo'lmaydi — shuning uchun hozir saqlab qolamiz).
+        old_station = sub.stationId
+        old_amount = _fuel_amount_of(sub)
+        old_counted = not _is_backdated(sub)
+
         changes = dict(request.data)
         changes.pop("reportDateOverride", None)
         if not _is_admin(user):
@@ -161,6 +262,21 @@ class SubmissionViewSet(viewsets.ModelViewSet):
         changes["editedAt"] = now_ms()
 
         sub = update_submission(sub, changes)
+
+        # Miqdor o'zgargan bo'lsa — operator balansi ham shunga yarasha
+        # to'g'rilanadi (farq qancha bo'lsa, shuncha). Xatosi tahrirni buzmaydi.
+        _sync_balance_after_edit(
+            old_station,
+            old_amount,
+            old_counted,
+            sub,
+            {
+                "userId": getattr(user, "code", "") or "",
+                "userName": getattr(user, "displayName", "") or "",
+                "userRole": getattr(user, "role", "") or "",
+            },
+        )
+
         return Response(self.get_serializer(sub).data)
 
     def partial_update(self, request, *args, **kwargs):
