@@ -229,7 +229,41 @@ REST_FRAMEWORK = {
         "anon": env("THROTTLE_ANON", "60/min"),
         # "Admin qo'shish" vault paroli — kod bo'yicha cheklanadi
         "vault": env("THROTTLE_VAULT", "5/min"),
+        # Face ID — IP bo'yicha cheklanadi (qurilma ID sini klient o'zgartira oladi)
+        "face": env("THROTTLE_FACE", "30/min"),
     },
+}
+
+
+# ── Face ID (yuz bo'yicha kirish) ───────────────────────────────────────────
+# Butun mantiq `accounts/face.py` + `accounts/face_service.py` da, TASHQI
+# KUTUBXONASIZ (numpy/opencv/dlib YO'Q) — shuning uchun serverga o'rnatishda
+# hech narsa qo'shimcha talab qilinmaydi.
+#
+# Chegaralarni O'ZGARTIRISH KERAK BO'LMAYDI, lekin real sharoitda (yorug'lik,
+# kamera sifati) sozlash uchun `.env` da quyidagilar bor:
+#   FACE_ID_ENABLED=0        — Face ID ni butunlay o'chirish (parol qoladi)
+#   FACE_ABS_MAX=0.45        — masofaning mutlaq "shifti" (kattaroq = yumshoqroq)
+#   FACE_STRICT_ABS=0.28     — xodimlar kam bo'lganda (statistika ishlamaydi)
+#   FACE_RATIO=0.82          — 2-o'rindagi nomzoddan qanchalik yaxshi bo'lishi
+#   FACE_MIN_Z=2.4           — statistik ajralish (kattaroq = qattiqroq)
+# Har bir muvaffaqiyatsiz urinishning aniq raqamlari `security_events.meta`
+# ga yoziladi ({"scope":"face","d":...,"z":...}) — sozlashda shundan foydalaning.
+FACE_ID = {
+    "ENABLED": env_bool("FACE_ID_ENABLED", True),
+    "ABS_MAX": float(env("FACE_ABS_MAX", "0.45")),
+    "STRICT_ABS": float(env("FACE_STRICT_ABS", "0.28")),
+    "RATIO": float(env("FACE_RATIO", "0.82")),
+    "MIN_Z": float(env("FACE_MIN_Z", "2.4")),
+    "MIN_COHORT": int(env("FACE_MIN_COHORT", "4")),
+    "MAX_SAMPLES": int(env("FACE_MAX_SAMPLES", "5")),
+    # Qurilmada ketma-ket shuncha marta tanilmasa — Face ID vaqtincha o'chadi
+    # (parol bilan kirish ochiq qoladi).
+    "DEVICE_FAILS": int(env("FACE_DEVICE_FAILS", "6")),
+    "DEVICE_COOLDOWN_SEC": int(env("FACE_DEVICE_COOLDOWN", "300")),
+    # Butun server bo'yicha daqiqasiga necha marta yuz tekshirilishi mumkin
+    # (protsessorni himoya qiladi; parol bilan kirishga taalluqli emas).
+    "GLOBAL_PER_MIN": int(env("FACE_GLOBAL_PER_MIN", "90")),
 }
 
 

@@ -13,6 +13,8 @@ router.register("device-locks", views.DeviceLockViewSet, basename="device-lock")
 
 auth_patterns = [
     path("login/", views.LoginView.as_view(), name="login"),
+    path("face-login/", views.FaceLoginView.as_view(), name="face-login"),
+    path("face-status/", views.FaceStatusView.as_view(), name="face-status"),
     path("logout/", views.LogoutView.as_view(), name="logout"),
     path("heartbeat/", views.HeartbeatView.as_view(), name="heartbeat"),
     path("me/", views.MeView.as_view(), name="me"),

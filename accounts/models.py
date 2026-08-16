@@ -68,6 +68,14 @@ class Staff(models.Model):
         choices=[("worker", "worker"), ("operator", "operator")],
     )
     stationId = models.CharField(max_length=64, null=True, blank=True)
+    # Xodim surati — `data:image/jpeg;base64,...` ko'rinishida (kichik, ~256px).
+    # ATAYLAB alohida fayl-xotira (MEDIA_ROOT) ishlatilmadi: statik eksport
+    # qilinadigan frontend uchun qo'shimcha fayl serveri/nginx sozlamasi kerak
+    # bo'lardi va deploy murakkablashardi. Surat RO'YXAT javobiga QO'SHILMAYDI —
+    # u faqat `GET /api/staff/{id}/photo/` orqali alohida olinadi, shuning uchun
+    # mavjud `/staff/` so'rovlarining hajmi o'zgarmaydi.
+    photo = models.TextField(blank=True, default="")
+    photoUpdatedAt = models.BigIntegerField(null=True, blank=True)
 
     class Meta:
         db_table = "staff"
@@ -75,6 +83,48 @@ class Staff(models.Model):
 
     def __str__(self):
         return f"{self.tabelNumber} — {self.fullName}"
+
+
+class FaceTemplate(models.Model):
+    """`face_templates/{code}` — Face ID biometrik shabloni.
+
+    ATAYLAB `Staff` ga ForeignKey QILINMAGAN, kalit sifatida KIRISH KODI
+    ishlatiladi (worker uchun tabel raqam, admin uchun access code). Sababi:
+    Face ID muvaffaqiyatli bo'lganda backend aynan shu kod bilan parol
+    orqali kirishdagi BIR XIL sessiya qurish yo'lidan o'tadi
+    (`_build_admin_session` / `_build_staff_session`). Ya'ni Face ID hech qanday
+    yangi huquq yo'li ochmaydi — u faqat "kodni yozish" qadamini almashtiradi.
+
+    `vectors` — har biri base64 shablon bo'lgan qatorlar ("\\n" bilan ajratilgan).
+    Bu maydon API orqali HECH QACHON tashqariga chiqmaydi (serializerda yo'q).
+    """
+
+    code = models.CharField(max_length=64, primary_key=True)
+    vectors = models.TextField(blank=True, default="")
+    # Normallashtirilgan kulrang kadrlar (96x96, base64). Ular saqlanadi, chunki
+    # algoritm yangilansa (TEMPLATE_VERSION) shablonlarni SHU kadrlardan qayta
+    # qurish mumkin — hech kimdan qaytadan surat so'ralmaydi:
+    #   python manage.py rebuild_face_templates
+    samples = models.TextField(blank=True, default="")
+    sampleCount = models.IntegerField(default=0)
+    version = models.IntegerField(default=1)
+    createdAt = models.BigIntegerField(default=now_ms)
+    updatedAt = models.BigIntegerField(default=now_ms)
+    createdByDisplayName = models.CharField(max_length=200, blank=True, default="")
+    lastMatchedAt = models.BigIntegerField(null=True, blank=True)
+
+    class Meta:
+        db_table = "face_templates"
+        ordering = ["code"]
+
+    def __str__(self):
+        return f"{self.code} ({self.sampleCount} ta shablon)"
+
+    def vector_list(self) -> list[str]:
+        return [line for line in (self.vectors or "").splitlines() if line.strip()]
+
+    def sample_list(self) -> list[str]:
+        return [line for line in (self.samples or "").splitlines() if line.strip()]
 
 
 class BlockedCode(models.Model):

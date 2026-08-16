@@ -5,6 +5,7 @@ from .models import (
     ActiveSession,
     BlockedCode,
     DeviceLock,
+    FaceTemplate,
     SecurityEvent,
     Staff,
 )
@@ -22,6 +23,21 @@ class StaffAdmin(admin.ModelAdmin):
     list_display = ("tabelNumber", "fullName", "zapravka", "erju", "stationId", "role")
     list_filter = ("erju", "role")
     search_fields = ("tabelNumber", "fullName", "zapravka")
+    # Surat — uzun base64 matn; ro'yxatda ham, formada ham ochib o'tirilmaydi.
+    exclude = ("photo",)
+
+
+@admin.register(FaceTemplate)
+class FaceTemplateAdmin(admin.ModelAdmin):
+    """Face ID shablonlari. Biometrik vektor ATAYLAB ko'rsatilmaydi/tahrirlanmaydi."""
+
+    list_display = ("code", "sampleCount", "createdByDisplayName", "updatedAt", "lastMatchedAt")
+    search_fields = ("code", "createdByDisplayName")
+    exclude = ("vectors",)
+    readonly_fields = ("code", "sampleCount", "version", "createdAt", "updatedAt", "lastMatchedAt")
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(BlockedCode)
