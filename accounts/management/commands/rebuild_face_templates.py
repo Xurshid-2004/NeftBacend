@@ -13,9 +13,6 @@ qaytadan surat so'ralmaydi.
 
 from __future__ import annotations
 
-import base64
-import binascii
-
 from django.core.management.base import BaseCommand
 
 from accounts import face
@@ -49,16 +46,7 @@ class Command(BaseCommand):
                 )
                 continue
 
-            vectors: list[str] = []
-            for line in raw_samples:
-                try:
-                    sample = base64.b64decode(line, validate=True)
-                except (binascii.Error, ValueError):
-                    continue
-                if len(sample) != face.SAMPLE_LEN:
-                    continue
-                vectors.append(face.encode_template(face.build_template(sample)))
-
+            vectors = face.templates_from_raw(raw_samples)
             if not vectors:
                 skipped += 1
                 self.stderr.write(f"  {record.code}: kadrlar buzuq.")

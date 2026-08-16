@@ -247,6 +247,12 @@ REST_FRAMEWORK = {
 #   FACE_STRICT_ABS=0.28     — xodimlar kam bo'lganda (statistika ishlamaydi)
 #   FACE_RATIO=0.82          — 2-o'rindagi nomzoddan qanchalik yaxshi bo'lishi
 #   FACE_MIN_Z=2.4           — statistik ajralish (kattaroq = qattiqroq)
+#   FACE_CROSS_RATIO=0.70    — admin <-> oddiy xodim ikkilanishida qattiqroq
+#                              nisbat (kichrayt = yanada qattiq)
+#   FACE_ENROLL_MIN_DISTANCE=0.10 — ro'yxatga olishda: yangi yuz mavjud
+#                              birovnikiga shundan yaqin bo'lsa QABUL
+#                              QILINMAYDI. Asosiy chalkashlik tekshiruvi
+#                              bundan qat'i nazar ishlaydi (find_conflict)
 # Har bir muvaffaqiyatsiz urinishning aniq raqamlari `security_events.meta`
 # ga yoziladi ({"scope":"face","d":...,"z":...}) — sozlashda shundan foydalaning.
 FACE_ID = {
@@ -257,6 +263,9 @@ FACE_ID = {
     "MIN_Z": float(env("FACE_MIN_Z", "2.4")),
     "MIN_COHORT": int(env("FACE_MIN_COHORT", "4")),
     "MAX_SAMPLES": int(env("FACE_MAX_SAMPLES", "5")),
+    # Chalkashlikka qarshi (admin <-> xodim) — `accounts/face.py` ga qarang.
+    "CROSS_RATIO": float(env("FACE_CROSS_RATIO", "0.70")),
+    "ENROLL_MIN_DISTANCE": float(env("FACE_ENROLL_MIN_DISTANCE", "0.10")),
     # Qurilmada ketma-ket shuncha marta tanilmasa — Face ID vaqtincha o'chadi
     # (parol bilan kirish ochiq qoladi).
     "DEVICE_FAILS": int(env("FACE_DEVICE_FAILS", "6")),

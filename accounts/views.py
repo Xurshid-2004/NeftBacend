@@ -315,7 +315,12 @@ class FaceStatusView(APIView):
 
     def get(self, request):
         enabled = face_service.is_enabled()
-        ready = enabled and FaceTemplate.objects.exists()
+        # ATAYLAB joriy versiyadagi shablon qidiriladi: algoritm yangilangan,
+        # lekin shablonlar hali qayta qurilmagan bo'lsa, tugma ko'rsatilmaydi —
+        # odam behuda urinmasdan darrov kodini kiritadi.
+        ready = enabled and FaceTemplate.objects.filter(
+            version=face.TEMPLATE_VERSION
+        ).exists()
         return Response({"enabled": enabled, "ready": ready})
 
 
@@ -402,7 +407,14 @@ class FaceLoginView(APIView):
             )
 
         enrolled = face_service.load_enrolled()
-        result = face.identify(samples, enrolled, face_service.thresholds())
+        # `groups` berilishi muhim: admin bilan oddiy xodim orasida ikkilanish
+        # bo'lsa, qaror qattiqlashadi va tizim KIRITMAYDI (parol yo'li ochiq).
+        result = face.identify(
+            samples,
+            enrolled,
+            face_service.thresholds(),
+            groups=face_service.groups_map(),
+        )
         matched_code = result.get("code")
 
         session = None
@@ -430,11 +442,21 @@ class FaceLoginView(APIView):
                     "cohort": result.get("cohort"),
                 },
             )
+            reason = result.get("reason") or "no_match"
+            # Ikkilanish (ayniqsa admin <-> xodim) boshqacha tushuntiriladi:
+            # "tanilmadi" emas, "aniq ajratib bo'lmadi" — odam bir necha marta
+            # behuda urinib o'tirmasdan darrov kodini yozadi.
+            detail = {
+                "cross_group": "Yuz aniq ajratilmadi. Xavfsizlik uchun kirish "
+                "to'xtatildi — kirish kodingizni yozing.",
+                "ambiguous": "Yuz aniq ajratilmadi. Xavfsizlik uchun kirish "
+                "to'xtatildi — kirish kodingizni yozing.",
+            }.get(
+                reason,
+                "Yuz tanilmadi. Qaytadan urinib ko'ring yoki parol kiriting.",
+            )
             return Response(
-                {
-                    "detail": "Yuz tanilmadi. Qaytadan urinib ko'ring yoki parol kiriting.",
-                    "reason": result.get("reason") or "no_match",
-                },
+                {"detail": detail, "reason": reason},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
@@ -551,8 +573,44 @@ class AccessCodeViewSet(viewsets.ModelViewSet):
     filterset_fields = ["role", "codeType", "isActive"]
     search_fields = ["code", "displayName"]
 
+    def get_queryset(self):
+        # `hasPhoto` / `hasFace` bitta so'rovda hisoblanadi (N+1 yo'q) —
+        # `StaffViewSet` dagi bilan bir xil usul.
+        queryset = AccessCode.objects.all().annotate(
+            _has_photo=Case(
+                When(Q(photo="") | Q(photo__isnull=True), then=Value(False)),
+                default=Value(True),
+                output_field=BooleanField(),
+            ),
+            _has_face=Exists(FaceTemplate.objects.filter(code=OuterRef("code"))),
+        )
+        if self.action == "list":
+            # Ro'yxatga surat matni tortilmaydi — javob hajmi avvalgidek qoladi.
+            queryset = queryset.defer("photo")
+        return queryset
+
+    @action(detail=True, methods=["get"])
+    def photo(self, request, pk=None):
+        """GET /api/access-codes/{code}/photo/ — bitta admin surati."""
+        access_code = self.get_object()
+        return Response(
+            {
+                "id": access_code.code,
+                "photo": access_code.photo or "",
+                "photoUpdatedAt": access_code.photoUpdatedAt,
+            }
+        )
+
     def perform_update(self, serializer):
         serializer.save(updatedAt=now_ms())
+
+    def perform_destroy(self, instance):
+        code = (instance.code or "").strip()
+        super().perform_destroy(instance)
+        # Admin o'chirilsa, uning Face ID shabloni ham qolmasin: qolib ketgan
+        # shablon hech kimni kiritmaydi (sessiya qurilmaydi), lekin boshqalarni
+        # tanishga xalaqit berardi — nomzodlar orasida "arvoh" bo'lib turardi.
+        face_service.remove(code)
 
 
 class StaffViewSet(viewsets.ModelViewSet):

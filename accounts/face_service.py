@@ -17,7 +17,7 @@ from django.conf import settings
 from common.timeutil import now_ms
 
 from . import face
-from .models import FaceTemplate
+from .models import AccessCode, FaceTemplate, Staff
 
 # Surat uchun cheklovlar. Klient rasmni ~256px ga kichraytirib yuboradi
 # (~20-40 KB), shuning uchun 400 KB — juda ehtiyotkor "shift".
@@ -30,6 +30,12 @@ DEFAULT_MAX_SAMPLES = 5
 MAX_LOGIN_FRAMES = 5
 # Ikki xodimga bitta surat qo'yilganini aniqlash chegarasi (juda qattiq).
 DUPLICATE_DISTANCE = 0.05
+
+# Guruh nomlari — `face.identify(groups=...)` uchun. Bir guruh ichida (masalan
+# ikki oddiy xodim) chalkashish ham yomon, lekin guruhlar ORASIDA chalkashish
+# huquq berib qo'yadi, shuning uchun u alohida qattiq tekshiriladi.
+GROUP_ADMIN = "admin"
+GROUP_STAFF = "staff"
 
 
 class FaceError(ValueError):
@@ -53,6 +59,45 @@ def max_samples() -> int:
         return max(1, min(10, int(config().get("MAX_SAMPLES", DEFAULT_MAX_SAMPLES))))
     except (TypeError, ValueError):
         return DEFAULT_MAX_SAMPLES
+
+
+# ── Kim kim (guruh / ism) ───────────────────────────────────────────────────
+def groups_map() -> dict[str, str]:
+    """Har bir kirish kodi qaysi guruhda: {code: "admin" | "staff"}.
+
+    Kod ikkala jadvalda ham uchrasa "admin" deb olinadi — login oqimi ham aynan
+    shu tartibda ishlaydi (`_build_admin_session` avval sinaladi), ya'ni bu
+    xarita haqiqiy huquq bilan bir xil bo'lib qoladi.
+    """
+    out = {
+        code: GROUP_ADMIN
+        for code in AccessCode.objects.values_list("code", flat=True)
+    }
+    for tabel in Staff.objects.values_list("tabelNumber", flat=True):
+        key = (tabel or "").strip()
+        if key and key not in out:
+            out[key] = GROUP_STAFF
+    return out
+
+
+def owner_label(code: str) -> str:
+    """Kod kimga tegishli — xato matnida ko'rsatiladigan ism."""
+    key = (code or "").strip()
+    if not key:
+        return ""
+    name = (
+        Staff.objects.filter(tabelNumber=key)
+        .values_list("fullName", flat=True)
+        .first()
+    )
+    if name is not None:
+        return f"{name.strip() or key} (xodim)"
+    name = (
+        AccessCode.objects.filter(pk=key).values_list("displayName", flat=True).first()
+    )
+    if name is not None:
+        return f"{(name or '').strip() or key} (admin)"
+    return key
 
 
 # ── Surat ───────────────────────────────────────────────────────────────────
@@ -99,24 +144,84 @@ def parse_samples(value: object, limit: int) -> list[bytes]:
 
 
 # ── Saqlash ─────────────────────────────────────────────────────────────────
-def find_duplicate(code: str, samples: list[bytes]) -> str | None:
-    """Xuddi shu surat boshqa xodimga biriktirilganmi?
+def find_conflict(
+    code: str, samples: list[bytes], group: str | None = None
+) -> tuple[str, str] | None:
+    """Yangi yuz mavjud birov bilan chalkashib ketadimi?
 
-    Chegara ATAYLAB juda qattiq (deyarli bir xil rasm) — "o'xshash odam" emas,
-    "aynan o'sha faylni qayta yuklash" holatini tutadi. Shu sababli noto'g'ri
-    ogohlantirish berish ehtimoli yo'q darajada.
+    Bu — CHALKASHLIKKA QARSHI ASOSIY HIMOYA. Login paytidagi tekshiruvlar
+    (nisbat, z-ball, guruhlararo qattiqlik) ikkilanishni ushlaydi, lekin eng
+    to'g'ri yechim — bir-biriga o'xshab ketadigan ikki shablonni bazaga UMUMAN
+    kiritmaslik. Shuning uchun har bir yangi yuz mavjud hammasi (xodim ham,
+    admin ham) bilan solishtiriladi.
+
+    `group` berilsa (GROUP_ADMIN / GROUP_STAFF), BOSHQA guruhdagilar bilan
+    ANCHA qattiq solishtiriladi — pastdagi izohga qarang.
+
+    Qaytadi `(mavjud_kod, sabab)` yoki `None`. Sabab:
+      "same"  — deyarli AYNI surat (bitta odamga ikkinchi hisob ochilyapti);
+      "close" — boshqa surat, biroq shu qadar yaqinki, kirishda chalkashardi;
+      "cross" — boshqa GURUHDAGI odamga (admin <-> xodim) yetarlicha yaqin.
+
+    NEGA IKKI XIL O'LCHOV
+    ────────────────────
+    Bir guruh ichida (masalan ikki oddiy xodim) o'lchov — oddiy masofa
+    (ENROLL_MIN_DISTANCE): u yerda ataylab faqat "aynan bir odam ikki marta"
+    holati to'siladi, aks holda bir-biriga uzoqdan o'xshaydigan begona
+    xodimlarni ham ro'yxatga ololmay qolardik.
+
+    Guruhlar ORASIDA esa savol boshqacha qo'yiladi: "shu yangi yuz bilan
+    KIRILSA, u boshqa guruhdagi birov sifatida tanilib ketadimi?" Javobni
+    aynan login funksiyasi (`face.identify`) beradi. Shuning uchun tekshiruv
+    qanday chegara qo'yilganidan qat'i nazar to'g'ri ishlaydi va "kirib keta
+    oladigan" o'xshashlik hech qachon bazaga tushmaydi. Absolyut raqam
+    ishlatilmadi: u yorug'lik/kamera farqiga qarab butun boshli adminni
+    ro'yxatga ololmay qolish xavfini tug'dirardi.
+
+    Narx: yangi kadrlar x mavjud shablonlar. Bu amal kamdan-kam (xodim/admin
+    qo'shishda) bajariladi, shuning uchun ataylab TO'LIQ taqqoslash qilinadi —
+    tezlik uchun nomzod saralash ishlatilmaydi (bitta o'tkazib yuborilgan
+    o'xshashlik keyin har kuni takrorlanadigan xatoga aylanardi).
     """
     if not samples:
         return None
     key = (code or "").strip()
+    others = [(c, t) for c, t in load_enrolled() if c != key]
+    if not others:
+        return None
+
+    limits = thresholds()
+    limit = max(DUPLICATE_DISTANCE, limits.enroll_min_distance)
+    known_groups = groups_map() if group else {}
     new_templates = [face.build_template(sample) for sample in samples]
-    for existing_code, templates in load_enrolled():
-        if existing_code == key:
-            continue
-        for a in new_templates:
-            for b in templates:
-                if face.hist_distance(a, b) <= DUPLICATE_DISTANCE:
-                    return existing_code
+
+    closest_code: str | None = None
+    closest = 1.0
+    cross_others: list[tuple[str, list[bytes]]] = []
+
+    for existing_code, templates in others:
+        best = min(
+            face.hist_distance(a, b) for a in new_templates for b in templates
+        )
+        if best < closest:
+            closest = best
+            closest_code = existing_code
+        if group and known_groups.get(existing_code, GROUP_STAFF) != group:
+            cross_others.append((existing_code, templates))
+
+    if closest_code is not None and closest <= DUPLICATE_DISTANCE:
+        return closest_code, "same"
+    if closest_code is not None and closest <= limit:
+        return closest_code, "close"
+
+    # Masofa "xavfsiz" ko'ringani yetarli emas: kirish qarori masofadan
+    # tashqari ovoz berish, nisbat va z-ballga ham tayanadi. Guruhlararo
+    # holatda oxirgi so'zni AYNAN o'sha funksiya aytadi.
+    if cross_others:
+        verdict = face.identify(samples, cross_others, limits)
+        matched = verdict.get("code")
+        if matched:
+            return matched, "cross"
     return None
 
 
@@ -182,6 +287,10 @@ def move(old_code: str, new_code: str) -> None:
     FaceTemplate.objects.create(
         code=new,
         vectors=record.vectors,
+        # Xom kadrlar ham ko'chishi SHART: aks holda algoritm yangilanganda
+        # (`rebuild_face_templates`) aynan shu odamning shabloni tiklanmay
+        # qolardi va undan qaytadan surat so'rashga to'g'ri kelardi.
+        samples=record.samples,
         sampleCount=record.sampleCount,
         version=record.version,
         createdAt=record.createdAt,

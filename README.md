@@ -266,6 +266,44 @@ server {
 - [ ] `CORS_ALLOWED_ORIGINS` frontend domeni bilan
 - [ ] HTTPS (Nginx + certbot), `DJANGO_CSRF_TRUSTED_ORIGINS`
 - [ ] `python manage.py check --deploy` ogohlantirishlarini ko'rib chiqing
+- [ ] Face ID uchun: `migrate` bajarilgan va sayt HTTPS da (pastga qarang)
+
+### Face ID (yuz bilan kirish)
+
+Yuz bo'yicha kirish ham XODIM (`staff.tabelNumber`), ham ADMIN
+(`access_codes.code`) uchun ishlaydi. Biometrik shablon FAQAT serverda
+quriladi va hech qachon API orqali tashqariga chiqmaydi; brauzer atigi
+96x96 kulrang kadr yuboradi.
+
+Face ID — QO'SHIMCHA yo'l, almashtiruvchi emas: login sahifasida yuz tugmasi
+ham, kod maydoni ham doim turadi. Yuz tanilmasa (yoki kamera yo'q, HTTP,
+shablon eskirgan) hech narsa bloklanmaydi — odam kodini yozib kiraveradi.
+
+Joylashda e'tibor beriladigan narsalar:
+
+1. **`python manage.py migrate` SHART.** Yangilanishda `access_codes` ga
+   `photo` / `photoUpdatedAt` maydonlari qo'shildi — migratsiyasiz "Admin
+   qo'shish" 500 xato beradi. O'sha `migrate` mavjud Face ID shablonlarini
+   yangi algoritm (oval niqob) bo'yicha AVTOMATIK qayta quradi; hech kimdan
+   qaytadan surat so'ralmaydi va qo'shimcha buyruq kerak emas.
+2. **HTTPS majburiy.** Kamera (`getUserMedia`) faqat xavfsiz kontekstda
+   ochiladi; HTTP da tugma "Kamera ishlamaydi" deydi va odamlar kod bilan
+   kiraveradi.
+3. **Bir nechta worker ishlatsangiz — umumiy kesh qo'ying.** Face ID ning
+   tezlik chegarasi va "sovish" hisoblagichi Django keshida turadi; standart
+   kesh har bir jarayonda ALOHIDA bo'lgani uchun chegara worker soniga
+   ko'payadi. Redis (`django-redis`) ulansa, hisob butun server bo'yicha
+   yagona bo'ladi. Bu xavfsizlik teshigi emas (asosiy himoya — yuz qarori,
+   qurilma bloki va bloklangan kodlar), lekin chegara aniqroq ishlaydi.
+4. **Chalkashlikka qarshi sozlamalar** (`.env`, standart qiymatlar odatda
+   yetarli): `FACE_CROSS_RATIO=0.70` — admin bilan oddiy xodim orasida
+   ikkilanish bo'lsa qanchalik qattiq talab qilish;
+   `FACE_ENROLL_MIN_DISTANCE=0.10` — ro'yxatga olishda "bir xil odam" deb
+   hisoblanadigan masofa. Barcha chegaralar `config/settings.py :: FACE_ID`
+   da izohlangan.
+5. **Algoritm yangilansa** (`accounts/face.py` dagi `TEMPLATE_VERSION`):
+   `python manage.py rebuild_face_templates` — shablonlar saqlangan
+   kadrlardan qayta quriladi, hech kimdan qaytadan surat so'ralmaydi.
 
 ---
 

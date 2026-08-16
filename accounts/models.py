@@ -43,6 +43,13 @@ class AccessCode(models.Model):
     # kodlar uchun hech narsa o'zgarmaydi. Ruxsat etilgan qiymatlar:
     # accounts/sections.py :: ASSIGNABLE_SECTIONS.
     allowedSections = models.JSONField(null=True, blank=True, default=None)
+    # Admin surati — `Staff.photo` bilan AYNAN bir xil qoida: `data:image/...`
+    # ko'rinishidagi kichik (~256px) JPEG. Face ID shabloni bu yerda EMAS,
+    # `FaceTemplate` da (kalit — shu kod) turadi. Surat RO'YXAT javobiga
+    # QO'SHILMAYDI: u faqat `GET /api/access-codes/{code}/photo/` orqali
+    # olinadi, shuning uchun mavjud `/access-codes/` so'rovlari og'irlashmaydi.
+    photo = models.TextField(blank=True, default="")
+    photoUpdatedAt = models.BigIntegerField(null=True, blank=True)
     createdAt = models.BigIntegerField(default=now_ms)
     updatedAt = models.BigIntegerField(default=now_ms)
 
