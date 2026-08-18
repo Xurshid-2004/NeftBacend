@@ -5,6 +5,10 @@ Firestore kolleksiyalari:
   uzellar (statik) -> Uzel
   zapravkalar (statik) -> Zapravka
   settings/{key}   -> Setting     (JSON hujjat, key=PK, masalan "global")
+                                 ishlatilayotgan kalitlar: global,
+                                 lokomotivRusumlar, lokomotivRaqamlari,
+                                 customKorxonalar, depoLimits (депо лимити),
+                                 depoQoshimchaLimits (қўшимча лимит — АЛОҲИДА)
   questions        -> Question    (FormQuestion)
   variants/{stationId} -> Variant (JSON hujjat: fieldKey -> [qiymatlar])
   limits           -> Limit
