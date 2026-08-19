@@ -43,6 +43,30 @@ class SettingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
     lookup_value_regex = "[^/]+"
 
+    # ── Депо лимити: қўшимча -> асосийга қўшилиши ───────────────────────────
+    # `depoLimits` ёки `depoQoshimchaLimits` ҳужжатига ёзилганда базадаги
+    # жами лимит қайта ҳисобланади (`catalog/depo_limits.py`). Бошқа
+    # `settings/*` ҳужжатларига мутлақо тегилмайди.
+    def _sync_depo_limits(self, key) -> None:
+        from .depo_limits import SYNC_KEYS, sync_depo_limits
+
+        if str(key or "") not in SYNC_KEYS:
+            return
+        sync_depo_limits()
+
+    def perform_create(self, serializer):
+        obj = serializer.save()
+        self._sync_depo_limits(getattr(obj, "pk", None))
+
+    def perform_update(self, serializer):
+        obj = serializer.save()
+        self._sync_depo_limits(getattr(obj, "pk", None))
+
+    def perform_destroy(self, instance):
+        key = instance.pk
+        instance.delete()
+        self._sync_depo_limits(key)
+
 
 class QuestionViewSet(viewsets.ModelViewSet):
     """`subscribeToQuestions` ekvivalenti — category bo'yicha filtr, global savollar ham."""
